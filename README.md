@@ -73,8 +73,27 @@ MIT, see `LICENSE`.
 ## Desktop app
 
 `app/millennium_app.py` shows the dashboard in its own window (pywebview / WebView2), with working buttons.
-Build the .exe:
+Every `millennium://action/argument` link is passed to `action.handle()`, and the app reloads `action`,
+`dashboard`, `dashboard_extras`, `history` and `progress` on each click. So new buttons only need
+Python changes, not a rebuilt .exe.
 
-```npython -m PyInstaller --noconfirm --onedir --windowed --name "Millennium Dashboard" --icon app\icon.ico --distpath app --workpath app\build --specpath app\build app\millennium_app.py
+Build the .exe (from this folder):
+
+```
+python -m PyInstaller --noconfirm --onedir --windowed --name "Millennium Dashboard" --icon ..\icon.ico --distpath app --workpath app\build --specpath app\build app\millennium_app.py
 ```
 
+## Dashboard sections
+
+- **Needs you**: every item has a button.
+  - Draft to send: *Open draft + PDF* / *I sent it*
+  - Reply waiting: *Open reply* / *I sent it*
+  - Researcher reply: *They replied*
+  - Watched page changed: *Open page* / *Seen*
+- **Progress per problem**: a stage bar (5 stages) and the e-mail timeline (drafted, sent, reply, answered)
+  from the ledger, digests and `EVIDENCE.json`, plus "next on my end" from the local `roadmap.json`.
+- **Activity log**: every button press is appended to `activity_log.jsonl`. Older events are rebuilt
+  from ledger dates, digests, `weekly.log` and study reports.
+- **Versions**: every commit is listed as v0.1, v0.2, ... (oldest first). The header chip shows the current version.
+
+`activity_log.jsonl`, `ui_state.json` and `roadmap.json` stay local.
