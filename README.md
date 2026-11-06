@@ -89,7 +89,6 @@ python -m PyInstaller --noconfirm --onedir --windowed --name "Millennium Dashboa
   - Draft to send: *Open draft + PDF* / *I sent it*
   - Reply waiting: *Open reply* / *I sent it*
   - Researcher reply: *They replied*
-  - Watched page changed: *Open page* / *Seen*
 - **Progress per problem**: a stage bar (5 stages) and the e-mail timeline (drafted, sent, reply, answered)
   from the ledger, digests and `EVIDENCE.json`, plus "next on my end" from the local `roadmap.json`.
 - **Activity log**: every button press is appended to `activity_log.jsonl`. Older events are rebuilt
@@ -97,3 +96,25 @@ python -m PyInstaller --noconfirm --onedir --windowed --name "Millennium Dashboa
 - **Versions**: every commit is listed as v0.1, v0.2, ... (oldest first). The header chip shows the current version.
 
 `activity_log.jsonl`, `ui_state.json` and `roadmap.json` stay local.
+
+## Gmail drafts in your pinned Gmail app
+
+Draft buttons (and `outreach.py propose` / `open`) use `gmail_app.py`. It opens the email in the same Chrome
+as the Gmail shortcut pinned to the taskbar, so no separate sign-in is needed. To / Subject / Body come in
+filled, and the PDF is put on the clipboard and pasted into the message (Ctrl+V). Keys are only sent while
+that new Gmail window is in front; otherwise a note asks you to press Ctrl+V. Nothing is ever sent:
+you press Send. `gmail_compose.py` (separate Edge profile) remains only as a fallback.
+
+## The automation's own watch (`clay_watch.py`)
+
+Watched pages are not a to-do for you. Every weekly run, `clay_watch.py`:
+
+- reads the Clay Millennium Problems list. Any unsolved problem we do not track yet is added on its own
+  (weekly arXiv search plus a Progress card, stored in the local `clay_watch.json`);
+- fingerprints every Clay problem page. A changed page, or one that talks about a solved / claimed
+  resolution, becomes a *Watcher* note on that problem's Progress card. Nothing is marked solved
+  automatically;
+- turns changed data sources (Cremona tables -> BSD, Odlyzko zeros -> RH) into a "re-run the study"
+  note.
+
+Everything it does is also written to the Activity log.

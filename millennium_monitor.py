@@ -4,7 +4,8 @@ What it does (every run):
   1. Searches arXiv for papers from the last N days on each Millennium Prize problem and on the two
      topics we studied (murmurations / BSD, spacing of Riemann zeros).
   2. Checks whether the Clay Institute Millennium pages or the data sources we used (Cremona tables,
-     Odlyzko zero tables) have changed since the last run.
+     Odlyzko zero tables) have changed since the last run; clay_watch.py follows changes up itself
+     (new Clay problems are added to tracking, changed pages become notes on the Progress cards).
   3. Writes a dated digest (Markdown + HTML) and opens the HTML page in the browser.
 
 What it deliberately does NOT do: it never emails researchers. Unsolicited automated mail to
@@ -115,8 +116,16 @@ def main():
         "",
     ]
 
+    topics = dict(TOPICS)
+    try:
+        import clay_watch
+        for problem in clay_watch.auto_problems():  # new problems the watch added to tracking
+            topics.setdefault(problem["name"], problem["query"])
+    except Exception:
+        pass
+
     total = 0
-    for topic, query in TOPICS.items():
+    for topic, query in topics.items():
         time.sleep(3)  # arXiv API etiquette: at most one request every 3 seconds
         try:
             papers = recent_arxiv(query, since)
@@ -129,6 +138,7 @@ def main():
         lines.append("")
 
     lines.append("## Watched pages and data sources")
+    changed_sources = []
     for name, url in WATCHED_PAGES.items():
         try:
             fingerprint = page_fingerprint(url)
@@ -136,9 +146,19 @@ def main():
             lines.append(f"- {name}: could not check ({error})")
             continue
         previous = state["fingerprints"].get(url)
-        status = "first check" if previous is None else ("CHANGED, have a look" if previous != fingerprint else "unchanged")
+        status = "first check" if previous is None else ("CHANGED, followed up by the automation" if previous != fingerprint else "unchanged")
+        if previous is not None and previous != fingerprint:
+            changed_sources.append(name)
         state["fingerprints"][url] = fingerprint
         lines.append(f"- {name}: {status}  {url}")
+
+    lines.append("")
+    lines.append("## Watched by the automation: Clay problem list and data sources")
+    try:
+        import clay_watch
+        lines += clay_watch.run(changed_sources)
+    except Exception as error:
+        lines.append(f"- watch step failed: {error}")
 
     lines.append("")
     lines.append("## Expert outreach (rule-checked; drafts only, you press Send)")
@@ -157,7 +177,7 @@ def main():
     lines += [
         "",
         "## Suggested actions (manual)",
-        "- If a data source changed: re-run the BSD or RH study scripts before trusting old numbers.",
+        "- Changed Clay pages and data sources are followed up by the automation (see 'Watched by the automation').",
         "- If a new paper answers one of our questions: read it before writing to anyone.",
         "- New expert email: write an email_spec.json and run `python outreach.py propose <spec>`; it drafts only if every rule passes.",
     ]

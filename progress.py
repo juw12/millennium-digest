@@ -82,12 +82,32 @@ def email_timeline(contact, policy, today):
     return steps
 
 
+def all_problems():
+    """The fixed list plus any problem the Clay watch added (clay_watch.json)."""
+    try:
+        import clay_watch
+
+        extra = [(p["key"], p["name"], [p["name"]], p["key"], None) for p in clay_watch.auto_problems()]
+        return PROBLEMS + extra
+    except Exception:
+        return PROBLEMS
+
+
+def watch_notes(key):
+    try:
+        import clay_watch
+
+        return clay_watch.notes(key)
+    except Exception:
+        return []
+
+
 def problems(ledger, policy, today=None):
     today = today or dt.date.today()
     roadmap = _read_json(ROADMAP_FILE, {})
     counts = digest_counts()
     result = []
-    for key, name, sections, topic, study_dir in PROBLEMS:
+    for key, name, sections, topic, study_dir in all_problems():
         latest = sum(counts[s][-1][1] for s in sections if s in counts)
         total = sum(c for s in sections if s in counts for _, c in counts[s])
         weeks = max((len(counts[s]) for s in sections if s in counts), default=0)
@@ -132,7 +152,8 @@ def problems(ledger, policy, today=None):
             "study": study,
             "emails": emails,
             "stage": stage,
-            "next": roadmap.get(key, {}).get("next", ""),
+            "next": roadmap.get(key, {}).get("next", "") or "Watching new arXiv papers in the Monday digest.",
             "done": roadmap.get(key, {}).get("done", []),
+            "watch_notes": watch_notes(key),
         })
     return result

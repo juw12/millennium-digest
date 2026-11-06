@@ -122,13 +122,16 @@ def gmail_compose_url(to, subject, body):
 
 
 def save_draft(to, subject, body, attachment=None, open_window=True):
-    """Opens a pre-filled Gmail compose window (your Gmail account) and highlights the attachment
-    in File Explorer so it can be dragged in. Gmail auto-saves it to Drafts. Nothing is sent."""
+    """Opens a pre-filled compose window in your pinned Gmail app with the attachment pasted in
+    (gmail_app.py). Gmail auto-saves it to Drafts. Nothing is sent."""
     url = gmail_compose_url(to, subject, body)
     if open_window:
-        subprocess.Popen([EDGE, "--profile-directory=Default", "--new-window", url])
-        if attachment:
-            subprocess.Popen(["explorer", "/select,", str(attachment)])
+        import gmail_app  # local import: gmail_app imports this module
+
+        if not gmail_app.open_compose(to, subject, body, attachment, wait=True):
+            subprocess.Popen([EDGE, "--profile-directory=Default", "--new-window", url])
+            if attachment:
+                subprocess.Popen(["explorer", "/select,", str(attachment)])
     return url
 
 
@@ -280,7 +283,11 @@ if __name__ == "__main__":
         if not matches:
             print("no saved draft link for that address")
             sys.exit(1)
-        subprocess.Popen([EDGE, "--profile-directory=Default", "--new-window", matches[-1]["compose_url"]])
+        import gmail_app
+
+        chrome = gmail_app.chrome_command()
+        url = matches[-1]["compose_url"]
+        subprocess.Popen(chrome + ["--app=" + url] if chrome else [EDGE, "--profile-directory=Default", "--new-window", url])
         sys.exit(0)
     if command == "sync":
         print("\n".join(sync()) or "no changes")

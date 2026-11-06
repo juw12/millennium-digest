@@ -1,12 +1,11 @@
 """Handles the dashboard buttons (millennium:// links). Nothing is ever sent from here.
 
-  millennium://open/<address>   open the logged draft in Gmail, filled in, with its PDF already
-                                attached (gmail_compose.py); you read it and press Send yourself
+  millennium://open/<address>   open the logged draft in your pinned Gmail app (gmail_app.py), filled
+                                in, with its PDF pasted in; you read it and press Send yourself
   millennium://sent/<address>   after you sent it: mark it as sent in the ledger (asks first)
   millennium://reply/<address>  open your drafted answer to someone who replied (outbox/*reply*.txt)
   millennium://answered/<addr>  after you sent that answer: record it (asks first)
   millennium://replied/<addr>   they replied: mark it in the ledger (asks first)
-  millennium://seen/<page>      you looked at a changed watched page: hide it until it changes again
   millennium://refresh          rebuild the page
 
 handle() is used by both the desktop app (in-process) and the millennium:// link handler for a browser
@@ -22,6 +21,7 @@ import sys
 from pathlib import Path
 from urllib.parse import unquote, urlparse
 
+import gmail_app
 import history
 import outreach
 
@@ -88,6 +88,9 @@ def open_draft(address):
         )
         if answer != IDYES:
             return
+    # Your pinned Gmail app (Chrome, already signed in): filled in, PDF pasted in, you press Send.
+    if gmail_app.open_compose(entry["to"], entry["subject"], draft_body(entry), entry.get("attachment")):
+        return
     helper = python_for_helpers()
     if helper:
         # Runs in the background: opens Gmail, attaches the PDF, then shows a short note.
@@ -170,6 +173,9 @@ def open_reply(address):
         message(f"No drafted reply for {address} in the outbox folder.", MB_OK | MB_ICONWARN)
         return False
     history.record("button", f"You opened the reply draft to {address}")
+    to, subject, body = draft
+    if gmail_app.open_compose(to, subject, body):
+        return False
     helper = python_for_helpers()
     if helper:
         subprocess.Popen(

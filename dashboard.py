@@ -367,9 +367,6 @@ def build():
     rows, actions, recent_new, limit = outreach_items(ledger, policy)
     latest = history[-1] if history else None
 
-    if latest and latest["changed"]:
-        actions.append("Watched page changed: " + ", ".join(latest["changed"]) + " - have a look")
-
     # header status
     if task:
         task_chip = f'<span class="chip good"><span class="dot"></span>Weekly job on</span>'

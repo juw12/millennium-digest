@@ -65,7 +65,6 @@ def watched_page_urls(digest_html_path):
 def needs_you(rows, ledger, policy, latest_digest):
     """Every item gets at least one button. rows = dashboard.outreach_items rows."""
     today = dt.date.today()
-    seen = ui_state().get("seen_pages", {})
     items = []
     by_address = {c["to"]: c for c in ledger.get("contacts", [])}
     for row in rows:
@@ -99,16 +98,6 @@ def needs_you(rows, ledger, policy, latest_digest):
                                        button("Check Gmail", f"https://mail.google.com/mail/u/0/#search/from%3A{encoded}"),
                                        button("They replied", f"millennium://replied/{encoded}", ghost=True),
                                    ]))
-    if latest_digest:
-        watched_pages = watched_page_urls(latest_digest["html"])
-        for page in latest_digest["changed"]:
-            if seen.get(page) == latest_digest["date"]:
-                continue
-            url = watched_pages.get(page, "")
-            buttons = [button("Open page", url)] if url else []
-            buttons.append(button("Seen", f"millennium://seen/{quote(page)}", ghost=True))
-            items.append(_item("info", f"Watched page changed: {page}",
-                               f"Changed in the {latest_digest['date']} digest. Have a look, then mark it seen.", buttons))
     if not items:
         return '<p class="empty">Nothing needs you right now. Replies are checked when you mark them; the next digest runs Monday 09:00.</p>'
     return "".join(items)
@@ -129,6 +118,27 @@ def _file_link(path, label):
     if not path or not path.exists():
         return ""
     return f'<a href="{path.resolve().as_uri()}">{html.escape(label)}</a>'
+
+
+def _watch_status():
+    """One line on what the automation's Clay watch saw last time."""
+    try:
+        import clay_watch
+
+        state = clay_watch.load_state()
+    except Exception:
+        return ""
+    if not state.get("last_check"):
+        return '<p class="watch-line muted small">Clay watch: first check runs with the next digest.</p>'
+    listed = state.get("clay_list", [])
+    tracked = sum(1 for p in listed if clay_watch.key_for(p["name"], state))
+    added = len(state.get("auto_problems", []))
+    return (
+        f'<p class="watch-line muted small">Watched for you: Clay problem list checked {html.escape(state["last_check"])}, '
+        f'{len(listed)} problems listed, {tracked} tracked'
+        + (f", {added} added automatically" if added else "")
+        + ". New unsolved problems are added here by themselves; page changes show up as Watcher notes.</p>"
+    )
 
 
 def problems_section(ledger, policy):
@@ -172,6 +182,11 @@ def problems_section(ledger, policy):
         next_html = (
             f'<div class="next-up"><span>Next on my end</span>{html.escape(problem["next"])}</div>' if problem["next"] else ""
         )
+        for note in reversed(problem.get("watch_notes", [])[-2:]):
+            next_html += (
+                f'<div class="next-up watch"><span>Watcher &middot; {html.escape(note["date"])}</span>'
+                f'{html.escape(note["text"])}</div>'
+            )
         cards.append(
             f'<div class="prob"><div class="prob-head"><b>{html.escape(problem["name"])}</b></div>'
             f'{_stage_bar(problem["stage"])}<p class="small">{papers}</p>{study_html}'
@@ -181,6 +196,7 @@ def problems_section(ledger, policy):
         '<section class="card" id="progress"><div class="card-head"><div><h2>Progress per problem</h2>'
         '<p class="sub">Papers tracked, our studies, every email step and what happens next. '
         'Nothing here claims progress on a proof.</p></div></div>'
+        f'{_watch_status()}'
         f'<div class="probs">{"".join(cards)}</div></section>'
     )
 
@@ -216,6 +232,8 @@ EXTRA_CSS = """
 .probs { display:grid; grid-template-columns:repeat(auto-fill,minmax(330px,1fr)); gap:14px; }
 .prob { border:1px solid var(--line); border-radius:12px; padding:14px; background:#fcfcfd; display:flex; flex-direction:column; gap:8px; min-width:0; }
 .prob.solved { opacity:.75; }
+.next-up.watch { border-left-color: var(--warn, #b7791f); }
+.watch-line { margin: 0 0 10px; }
 .prob-head { display:flex; justify-content:space-between; align-items:center; gap:8px; font-size:14.5px; }
 .stages { display:grid; grid-template-columns:repeat(5,1fr); gap:4px; }
 .stage { height:6px; border-radius:99px; background:#e2e8f0; }
