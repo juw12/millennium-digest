@@ -14,6 +14,7 @@ import re
 import subprocess
 import sys
 import webbrowser
+from urllib.parse import quote
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -115,10 +116,12 @@ def outreach_items(ledger, policy):
                 next_step = f"On hold until {hold}"
             else:
                 next_step = "Draft ready - review and send yourself"
-                actions.append(f"{contact['name']}: draft is ready to review and send")
+                actions.append((f"{contact['name']}: draft is ready - open it, attach the PDF, press Send", contact["to"]))
         elif state in ("declined", "do-not-contact"):
             next_step = "Closed"
         rows.append({
+            "address": contact["to"],
+            "ready": state == "drafted" and not topic_holds and not on_hold,
             "name": contact.get("name", contact["to"]),
             "topic": contact.get("topic", ""),
             "state": state,
@@ -177,6 +180,21 @@ def file_link(path, label):
     return f'<a href="{path.resolve().as_uri()}">{html.escape(label)}</a>'
 
 
+def draft_buttons(address):
+    encoded = quote(address)
+    return (
+        f'<a class="btn" href="millennium://open/{encoded}">Open draft</a>'
+        f'<a class="btn ghost" href="millennium://sent/{encoded}">I sent it</a>'
+    )
+
+
+def render_action(action):
+    if isinstance(action, tuple):
+        text_part, address = action
+        return f"<li>{html.escape(text_part)} {draft_buttons(address)}</li>"
+    return f"<li>{html.escape(action)}</li>"
+
+
 def build():
     policy = read_json(HERE / "outreach_policy.json", {})
     ledger = read_json(HERE / "contacts_log.json", {"contacts": []})
@@ -203,7 +221,7 @@ def build():
     else:
         task_html = '<span class="pill bad">Weekly task not found</span>'
 
-    action_html = "".join(f"<li>{html.escape(a)}</li>" for a in actions) or "<li>Nothing needs you right now.</li>"
+    action_html = "".join(render_action(a) for a in actions) or "<li>Nothing needs you right now.</li>"
 
     paper_html = ""
     if latest:
@@ -224,7 +242,8 @@ def build():
     outreach_html = "".join(
         f"<tr><td>{html.escape(r['name'])}</td><td>{html.escape(r['topic'])}</td>"
         f"<td><span class='state {html.escape(r['state'])}'>{html.escape(r['state'])}</span></td>"
-        f"<td>{html.escape(r['date'])}</td><td>{html.escape(r['next'])}</td></tr>"
+        f"<td>{html.escape(r['date'])}</td><td>{html.escape(r['next'])}</td>"
+        f"<td>{draft_buttons(r['address']) if r['ready'] else ''}</td></tr>"
         for r in rows
     )
     budget_class = "bad" if recent_new > limit else "ok"
@@ -285,6 +304,9 @@ def build():
  .log {{ font-family:Consolas,monospace; font-size:.82rem; color:var(--muted); }}
  ul {{ margin:6px 0; padding-left:20px; }}
  a {{ color:#4b2aa8; }}
+ .btn {{ display:inline-block; padding:4px 10px; margin:2px 4px 2px 0; border-radius:7px; background:#5b3cc4; color:#fff; text-decoration:none; font-size:.85rem; font-weight:600; white-space:nowrap; }}
+ .btn.ghost {{ background:#fff; color:#5b3cc4; border:1px solid #5b3cc4; }}
+ .btn:hover {{ filter:brightness(1.1); }}
 </style></head>
 <body>
 <header><h1>Millennium Dashboard</h1>{task_html}
@@ -295,8 +317,8 @@ def build():
  <section><h2>New papers this week</h2><table><tr><th>Topic</th><th class="num">New</th><th>Trend</th></tr>{paper_html}</table>
   <p class="muted">{weeks_note} {latest_link}</p></section>
  <section class="wide"><h2>Expert outreach</h2>{budget_html}
-  <table><tr><th>Who</th><th>Topic</th><th>State</th><th>Date</th><th>Next step</th></tr>{outreach_html}</table>
-  <p class="muted">Drafts only; you always press Send. Rules: outreach_policy.json.</p></section>
+  <table><tr><th>Who</th><th>Topic</th><th>State</th><th>Date</th><th>Next step</th><th></th></tr>{outreach_html}</table>
+  <p class="muted"><b>Open draft</b>: Gmail opens filled in and the PDF is highlighted in File Explorer - drag it into the email and press Send yourself. Then click <b>I sent it</b> to log it. Nothing is ever sent automatically. Rules: outreach_policy.json.</p></section>
  <section class="wide"><h2>Research studies</h2>{study_html}</section>
  <section class="wide"><h2>Last automatic run</h2><div class="log">{weekly_html}</div></section>
 </main></body></html>
