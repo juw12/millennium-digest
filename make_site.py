@@ -5,6 +5,7 @@ section (researchers' names and addresses, contact history) is never written to 
 
 Usage: python make_site.py
 """
+import datetime as dt
 import html
 import json
 import re
@@ -80,6 +81,7 @@ def build():
     ]
     rules_html = "\n".join(f"<li>{html.escape(rule)}</li>" for rule in rules)
 
+    built_at = dt.datetime.now().strftime("%Y-%m-%d %H:%M")
     page = f"""<!doctype html>
 <html lang="en">
 <head>
@@ -158,7 +160,7 @@ python millennium_monitor.py      # writes and opens digests/digest_&lt;date&gt;
 python outreach.py status         # ledger + what the rules allow next
 python make_site.py               # rebuilds this page from the latest digest</pre>
 </main>
-<footer class="wrap">Built by Juwen Lie. Paper titles and links come from the arXiv API; all papers belong to their authors.
+<footer class="wrap">Page built {built_at} by the weekly job. Built by Juwen Lie. Paper titles and links come from the arXiv API; all papers belong to their authors.
 Code: <a href="https://github.com/juw12/millennium-digest">github.com/juw12/millennium-digest</a> (MIT licence).</footer>
 </body>
 </html>
