@@ -1,13 +1,15 @@
 """Handles the dashboard buttons (millennium:// links). Nothing is ever sent from here.
 
-  millennium://open/<address>   open the logged draft in Gmail, filled in, and highlight its PDF in
-                                File Explorer so you can drag it in and press Send yourself
+  millennium://open/<address>   open the logged draft in Gmail, filled in, with its PDF already
+                                attached (gmail_compose.py); you read it and press Send yourself
   millennium://sent/<address>   after you sent it: mark it as sent in the ledger (asks first)
 
 Registered for the current Windows user by register_buttons.ps1.
 """
 import ctypes
 import datetime as dt
+import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -78,20 +80,38 @@ def open_draft(address):
         )
         if answer != IDYES:
             return
+    helper = python_for_helpers()
+    if helper:
+        # Runs in the background: opens Gmail, attaches the PDF, then shows a short note.
+        subprocess.Popen(
+            [str(helper), str(HERE / "gmail_compose.py"), entry["to"]],
+            cwd=HERE,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        )
+        return
+    # Fallback without Python + Playwright: filled-in Gmail plus the PDF highlighted for dragging.
     url = outreach.gmail_compose_url(entry["to"], entry["subject"], draft_body(entry))
     subprocess.Popen([outreach.EDGE, "--profile-directory=Default", "--new-window", url])
     attachment = entry.get("attachment")
     if attachment and Path(attachment).exists():
         subprocess.Popen(["explorer", "/select,", str(attachment)])
-        steps = (
-            "Gmail is open with the email filled in, and the PDF is highlighted in File Explorer.\n\n"
-            "1. Drag the PDF into the email.\n"
-            "2. Read it once, then press Send.\n"
-            "3. Back on the dashboard, click 'I sent it'."
-        )
-    else:
-        steps = "Gmail is open with the email filled in.\nPress Send, then click 'I sent it' on the dashboard."
-    message(steps)
+    message("Gmail is open with the email filled in; drag the highlighted PDF in, then press Send.")
+
+
+def python_for_helpers():
+    """pythonw.exe that has Playwright (the desktop .exe cannot import it itself)."""
+    candidates = []
+    if not getattr(sys, "frozen", False):
+        candidates.append(Path(sys.executable).with_name("pythonw.exe"))
+    found = shutil.which("pythonw")
+    if found:
+        candidates.append(Path(found))
+    local = os.environ.get("LOCALAPPDATA", "")
+    candidates += sorted(Path(local, "Programs", "Python").glob("Python3*/pythonw.exe"), reverse=True)
+    for candidate in candidates:
+        if candidate.exists() and (candidate.parent / "Lib" / "site-packages" / "playwright").exists():
+            return candidate
+    return None
 
 
 def mark_sent(address, rebuild=True):

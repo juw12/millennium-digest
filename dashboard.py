@@ -119,7 +119,7 @@ def outreach_items(ledger, policy):
                 next_step = f"On hold until {hold}"
             else:
                 next_step = "Draft ready - review and send yourself"
-                actions.append((f"{contact['name']}: draft is ready - open it, attach the PDF, press Send", contact["to"]))
+                actions.append((f"{contact['name']}: draft is ready - open it (PDF attaches itself), read it, press Send", contact["to"]))
         elif state in ("declined", "do-not-contact"):
             next_step = "Closed"
         rows.append({
@@ -194,7 +194,7 @@ SLATE = "#94a3b8"
 def draft_buttons(address):
     encoded = quote(address)
     return (
-        f'<a class="btn" href="millennium://open/{encoded}">Open draft</a>'
+        f'<a class="btn" href="millennium://open/{encoded}">Open draft + PDF</a>'
         f'<a class="btn ghost" href="millennium://sent/{encoded}">I sent it</a>'
     )
 
@@ -588,7 +588,7 @@ footer {{ max-width:1180px; margin:0 auto; padding:0 24px 30px; color:var(--mute
   <div class="kpis">{kpi_html}</div>
 
   <section class="card"><div class="card-head"><div><h2>Needs you</h2>
-    <p class="sub">Open draft fills in Gmail and highlights the PDF; drag it in, press Send, then click I sent it.</p></div></div>
+    <p class="sub">Open draft + PDF opens the email in Gmail with the PDF already attached; read it, press Send, then click I sent it.</p></div></div>
     {todo_html}</section>
 
   <div class="grid2">
