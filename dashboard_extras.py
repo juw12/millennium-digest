@@ -28,12 +28,38 @@ def save_ui_state(state):
 
 
 def find_reply_draft(address):
-    """Your drafted answer to someone who replied: outbox/*reply*.txt whose first line is 'To: <address>'."""
-    for path in sorted((ROOT / "outbox").glob("*reply*.txt")):
+    """Your newest drafted answer to someone who replied: outbox/*reply*.txt whose first line is 'To: <address>'."""
+    candidates = sorted((ROOT / "outbox").glob("*reply*.txt"), key=lambda p: p.stat().st_mtime, reverse=True)
+    for path in candidates:
         first = path.read_text(encoding="utf-8").splitlines()[:1]
         if first and first[0].lower().strip() == f"to: {address.lower()}":
             return path
     return None
+
+
+def _their_words(contact, limit=170):
+    """The start of their latest reply (saved by gmail_inbox.py), for the Needs-you card."""
+    incoming = (contact.get("reply_draft") or {}).get("incoming")
+    if not incoming or not Path(incoming).exists():
+        return ""
+    body = Path(incoming).read_text(encoding="utf-8").split("\n\n", 1)[-1]
+    text = " ".join(body.split())
+    return text if len(text) <= limit else text[:limit].rsplit(" ", 1)[0] + "..."
+
+
+def _gmail_check_line():
+    try:
+        import gmail_inbox
+
+        state = gmail_inbox.load_state()
+    except Exception:
+        return "Gmail is checked every 2 hours."
+    if not state.get("at"):
+        return "Gmail is checked every 2 hours."
+    at = dt.datetime.fromisoformat(state["at"]).strftime("%d %b %H:%M")
+    if not state.get("ok"):
+        return f"Gmail check failed at {at}: {state.get('note', '')}"
+    return f"Gmail checked {at}; checked again every 2 hours."
 
 
 def button(label, href, ghost=False, title=""):
@@ -70,13 +96,34 @@ def needs_you(rows, ledger, policy, latest_digest):
     for row in rows:
         contact = by_address.get(row["address"], {})
         encoded = quote(row["address"])
-        if row["ready"]:
+        if contact.get("follow_up") and contact.get("state") == "drafted" and contact.get("gmail_draft"):
+            items.append(_item("mail", f"{row['name']}: follow-up drafted in Gmail",
+                               "One polite follow-up (21-day rule), saved as a draft in your thread. "
+                               "Read it and press Send, or delete the draft to skip it.", [
+                                   button("Open in Gmail", f"millennium://thread/{encoded}"),
+                               ]))
+        elif row["ready"]:
             items.append(_item("mail", f"{row['name']}: draft ready",
                                "Opens in Gmail with the PDF attached; read it and press Send.", [
                 button("Open draft + PDF", f"millennium://open/{encoded}"),
                 button("I sent it", f"millennium://sent/{encoded}", ghost=True),
             ]))
         elif row["state"] == "replied" and not contact.get("answer_sent_date"):
+            reply_draft = contact.get("reply_draft") or {}
+            if reply_draft.get("gmail"):
+                words = _their_words(contact)
+                detail = (f"\u201c{html.escape(words)}\u201d " if words else "") + (
+                    "Your answer is saved as a draft in that Gmail thread"
+                    + (" (auto-written: they asked a question, check it answers)" if reply_draft.get("generated") and reply_draft.get("question") else "")
+                    + ". Read it and press Send; sending is noticed automatically."
+                )
+                incoming = reply_draft.get("incoming")
+                buttons = [button("Open in Gmail", f"millennium://reply/{encoded}")]
+                if incoming and Path(incoming).exists():
+                    buttons.append(button("Their reply", Path(incoming).resolve().as_uri(), ghost=True))
+                buttons.append(button("I sent it", f"millennium://answered/{encoded}", ghost=True))
+                items.append(_item("mail", f"{row['name']} replied: your answer is drafted", detail, buttons))
+                continue
             draft = find_reply_draft(row["address"])
             if draft:
                 items.append(_item("mail", f"{row['name']} replied: send your thank-you",
@@ -99,8 +146,10 @@ def needs_you(rows, ledger, policy, latest_digest):
                                        button("They replied", f"millennium://replied/{encoded}", ghost=True),
                                    ]))
     if not items:
-        return '<p class="empty">Nothing needs you right now. Replies are checked when you mark them; the next digest runs Monday 09:00.</p>'
-    return "".join(items)
+        return (f'<p class="empty">Nothing needs you right now. {html.escape(_gmail_check_line())} '
+                f'The next digest runs Monday 09:00. {button("Check Gmail now", "millennium://checkmail/now", ghost=True)}</p>')
+    return "".join(items) + (f'<p class="empty">{html.escape(_gmail_check_line())} '
+                             f'{button("Check Gmail now", "millennium://checkmail/now", ghost=True)}</p>')
 
 
 def _stage_bar(stage):

@@ -87,8 +87,10 @@ python -m PyInstaller --noconfirm --onedir --windowed --name "Millennium Dashboa
 
 - **Needs you**: every item has a button.
   - Draft to send: *Open draft + PDF* / *I sent it*
-  - Reply waiting: *Open reply* / *I sent it*
+  - Someone replied: *Open in Gmail* (your answer is already a draft in the thread) / *Their reply* / *I sent it*
+  - Follow-up due (21-day rule): drafted in the thread, *Open in Gmail*
   - Researcher reply: *They replied*
+  - *Check Gmail now* runs the Gmail check immediately.
 - **Progress per problem**: a stage bar (5 stages) and the e-mail timeline (drafted, sent, reply, answered)
   from the ledger, digests and `EVIDENCE.json`, plus "next on my end" from the local `roadmap.json`.
 - **Activity log**: every button press is appended to `activity_log.jsonl`. Older events are rebuilt
@@ -104,6 +106,24 @@ as the Gmail shortcut pinned to the taskbar, so no separate sign-in is needed. T
 filled, and the PDF is put on the clipboard and pasted into the message (Ctrl+V). Keys are only sent while
 that new Gmail window is in front; otherwise a note asks you to press Ctrl+V. Nothing is ever sent:
 you press Send. `gmail_compose.py` (separate Edge profile) remains only as a fallback.
+
+## Replies and follow-ups (`gmail_inbox.py`)
+
+The scheduled task "Millennium Gmail check" runs `gmail_inbox.py` every 2 hours (headless Edge with the
+helper Gmail profile in `edge_gmail_profile`; nothing appears on screen). For every contact in the ledger
+that is drafted, sent or replied, it reads the Gmail threads with that address and:
+
+- marks a drafted email **sent** once your message shows up in Gmail (no "I sent it" click needed);
+- saves a **new reply** to `../inbox/`, sets the contact to *replied*, and drafts your answer as a reply
+  **inside that Gmail thread** (so it threads properly). A hand-written `../outbox/<TOPIC>_<Surname>_reply_<YYYYMMDD>.txt`
+  is used if it exists; otherwise a short thank-you is generated from the arXiv ids and sections they mention;
+- marks the contact **answered** once your answer is in the thread;
+- drafts the single allowed **follow-up** (21-day rule, `outreach.followups`) inside the thread as well.
+
+When a draft was made, a message box offers to open Gmail Drafts and the dashboard is rebuilt. It never
+sends: you read the draft in Gmail and press Send. Run it by hand with `python gmail_inbox.py`
+(`--dry-run` reads only, `--quiet` skips the message box). Last result: `gmail_inbox.json`, log:
+`gmail_inbox.log` (both local).
 
 ## The automation's own watch (`clay_watch.py`)
 

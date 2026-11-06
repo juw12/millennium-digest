@@ -102,7 +102,14 @@ def outreach_items(ledger, policy):
 
         next_step = ""
         if state == "replied":
-            next_step = "Replied - read and answer when ready"
+            if contact.get("answer_sent_date"):
+                next_step = f"Replied; you answered on {contact['answer_sent_date']}"
+            elif (contact.get("reply_draft") or {}).get("gmail"):
+                next_step = "Replied - your answer is drafted in the Gmail thread"
+            else:
+                next_step = "Replied - read and answer when ready"
+        elif state == "drafted" and contact.get("follow_up") and contact.get("gmail_draft"):
+            next_step = "Follow-up drafted in the Gmail thread - read it and press Send"
         elif state == "sent" and days_waiting is not None:
             due = policy.get("follow_up_after_days_without_reply", 21)
             if days_waiting >= due:
@@ -126,7 +133,7 @@ def outreach_items(ledger, policy):
             next_step = "Closed"
         rows.append({
             "address": contact["to"],
-            "ready": state == "drafted" and not topic_holds and not on_hold,
+            "ready": state == "drafted" and not topic_holds and not on_hold and not contact.get("gmail_draft"),
             "name": contact.get("name", contact["to"]),
             "topic": contact.get("topic", ""),
             "state": state,

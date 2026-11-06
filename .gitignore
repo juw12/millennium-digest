@@ -20,3 +20,8 @@ activity_log.jsonl
 ui_state.json
 roadmap.json
 clay_watch.json
+
+# Gmail check (gmail_inbox.py): last result, log, ledger backups
+gmail_inbox.json
+gmail_inbox.log
+contacts_log.*.json

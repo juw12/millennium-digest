@@ -167,7 +167,12 @@ def _reply_draft(address):
 
 
 def open_reply(address):
-    """Your drafted answer to someone who replied, filled in in Gmail (no attachment)."""
+    """Your drafted answer to someone who replied. If gmail_inbox.py already saved it as a draft in the
+    Gmail thread, that thread opens; otherwise Gmail compose opens filled in (no attachment)."""
+    entry = latest_entry(outreach.load_ledger(), address)
+    if entry and (entry.get("reply_draft") or {}).get("gmail") and entry.get("gmail_thread"):
+        history.record("button", f"You opened the reply draft to {address} (Gmail thread)")
+        return open_thread(address)
     draft = _reply_draft(address)
     if draft is None:
         message(f"No drafted reply for {address} in the outbox folder.", MB_OK | MB_ICONWARN)
@@ -187,6 +192,38 @@ def open_reply(address):
     to, subject, body = draft
     subprocess.Popen([outreach.EDGE, "--profile-directory=Default", "--new-window", outreach.gmail_compose_url(to, subject, body)])
     message("Gmail is open with your reply filled in. Read it, press Send, then click 'I sent it'.")
+    return False
+
+
+def open_thread(address):
+    """Opens your Gmail thread with this person in the pinned Gmail app (drafts show inside it)."""
+    import gmail_inbox
+
+    entry = latest_entry(outreach.load_ledger(), address)
+    thread = (entry or {}).get("gmail_thread")
+    url = gmail_inbox.thread_link(thread) if thread else (
+        f"https://mail.google.com/mail/?authuser={outreach.GMAIL_ACCOUNT}#search/{address}"
+    )
+    command = gmail_app.chrome_command()
+    if command:
+        subprocess.Popen(command + [f"--app={url}"])
+    else:
+        subprocess.Popen([outreach.EDGE, "--profile-directory=Default", "--new-window", url])
+    return False
+
+
+def check_gmail_now():
+    """Runs gmail_inbox.py in the background; it rebuilds the dashboard and tells you if a draft is waiting."""
+    helper = python_for_helpers()
+    if helper is None:
+        message("Python was not found, so Gmail cannot be checked from here.", MB_OK | MB_ICONWARN)
+        return False
+    pythonw = Path(helper).with_name("pythonw.exe")
+    subprocess.Popen([str(pythonw if pythonw.exists() else helper), str(HERE / "gmail_inbox.py")], cwd=HERE,
+                     creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+    history.record("button", "You asked for a Gmail check")
+    message("Checking Gmail in the background (about 3 minutes). A message appears if a draft is waiting; "
+            "press F5 afterwards.")
     return False
 
 
@@ -243,6 +280,10 @@ def handle(action, argument, in_app=False):
         return mark_sent(argument, rebuild=not in_app) and in_app
     if action == "reply":
         return open_reply(argument)
+    if action == "thread":
+        return open_thread(argument)
+    if action == "checkmail":
+        return check_gmail_now()
     if action == "answered":
         return mark_answered(argument)
     if action == "replied":

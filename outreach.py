@@ -219,7 +219,7 @@ def followups(open_windows=True):
         entry["followed_up"] = TODAY.isoformat()
         ledger["contacts"].append({**{k: entry[k] for k in ("to", "name", "topic")}, "subject": spec["subject"],
                                    "date": TODAY.isoformat(), "state": "drafted", "follow_up": True,
-                                   "compose_url": compose_url})
+                                   "compose_url": compose_url, "body": body})
         drafted.append(entry["to"])
     save_ledger(ledger)
     return drafted
