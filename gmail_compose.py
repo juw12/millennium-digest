@@ -92,8 +92,32 @@ def open_compose_tab(url):
         LOCAL.open(request, timeout=5).close()
 
 
-def wait_for_gmail(started_at):
-    """Waits (without connecting) until a tab is on mail.google.com, i.e. you are signed in."""
+def signed_in_tab(tab):
+    """A loaded Gmail tab is titled '... - <address> - Gmail'. The URL alone is not proof: a
+    signed-out profile briefly lists mail.google.com before redirecting to workspace.google.com."""
+    return (
+        tab["url"].startswith("https://mail.google.com/mail/")
+        and outreach.GMAIL_ACCOUNT.lower() in tab.get("title", "").lower()
+    )
+
+
+def send_to_sign_in(tab, compose_url):
+    """Replaces Gmail's signed-out landing page with Google's sign-in page that returns to the draft."""
+    sign_in = (
+        "https://accounts.google.com/ServiceLogin?service=mail"
+        f"&Email={urllib.parse.quote(outreach.GMAIL_ACCOUNT)}"
+        f"&continue={urllib.parse.quote(compose_url, safe='')}"
+    )
+    request = urllib.request.Request(
+        f"http://127.0.0.1:{DEBUG_PORT}/json/new?{urllib.parse.quote(sign_in, safe='')}",
+        method="PUT",
+    )
+    LOCAL.open(request, timeout=5).close()
+    LOCAL.open(f"http://127.0.0.1:{DEBUG_PORT}/json/close/{tab['id']}", timeout=5).close()
+
+
+def wait_for_gmail(started_at, compose_url):
+    """Waits (without connecting) until a Gmail tab is loaded and signed in as GMAIL_ACCOUNT."""
     shown_hint = False
     misses = 0
     while time.time() - started_at < SIGN_IN_WAIT_S:
@@ -105,12 +129,16 @@ def wait_for_gmail(started_at):
             time.sleep(1.5)
             continue
         misses = 0
-        if any(t["url"].startswith("https://mail.google.com/mail/") for t in open_tabs):
+        if any(signed_in_tab(t) for t in open_tabs):
             return
+        for tab in open_tabs:
+            if "workspace.google.com" in tab["url"]:
+                send_to_sign_in(tab, compose_url)
         if not shown_hint and any("accounts.google.com" in t["url"] for t in open_tabs):
             shown_hint = True
             hint = (
-                "First time only: sign in to Gmail in the Edge window that just opened.\n\n"
+                f"First time only: sign in as {outreach.GMAIL_ACCOUNT} in the Edge window "
+                "that just opened (this helper window keeps its own sign-in, separate from Chrome).\n\n"
                 "The draft and the PDF will appear by themselves after you sign in."
             )
             threading.Thread(target=message, args=(hint,), daemon=True).start()
@@ -131,6 +159,19 @@ def open_pinned_gmail_drafts():
         subprocess.Popen([outreach.EDGE, "--profile-directory=Default", f"--app={drafts_url}"])
 
 
+def find_gmail_page(browser, timeout_s=30):
+    """Playwright can attach before the tab has committed its URL (it shows up as ''),
+    so poll until a mail.google.com page is visible instead of reading the list once."""
+    deadline = time.time() + timeout_s
+    while time.time() < deadline:
+        pages = [p for c in browser.contexts for p in c.pages if p.url.startswith("https://mail.google.com/")]
+        if pages:
+            return pages[-1]
+        time.sleep(0.5)
+    seen = [p.url[:60] for c in browser.contexts for p in c.pages]
+    raise RuntimeError(f"Connected to Edge but found no Gmail tab (tabs: {seen}).")
+
+
 def save_draft(attachment, subject):
     """Fills in the attachment (if any), waits until Gmail says the draft is saved, then closes the
     compose tab. The draft stays in Gmail's Drafts folder; nothing is sent.
@@ -140,8 +181,7 @@ def save_draft(attachment, subject):
 
     with sync_playwright() as playwright:
         browser = playwright.chromium.connect_over_cdp(f"http://127.0.0.1:{DEBUG_PORT}")
-        pages = [p for c in browser.contexts for p in c.pages if p.url.startswith("https://mail.google.com/")]
-        page = pages[-1]
+        page = find_gmail_page(browser)
         page.wait_for_selector('input[name="subjectbox"]', timeout=60_000)
         attached = True
         if attachment:
@@ -174,8 +214,9 @@ def save_draft(attachment, subject):
 
 def compose(to, subject, body, attachment):
     started_at = time.time()
-    open_compose_tab(outreach.gmail_compose_url(to, subject, body))
-    wait_for_gmail(started_at)
+    compose_url = outreach.gmail_compose_url(to, subject, body)
+    open_compose_tab(compose_url)
+    wait_for_gmail(started_at, compose_url)
     time.sleep(1.0)
     attached, subject_ok, saved = save_draft(attachment, subject)
     if attachment and not attached:
