@@ -1,4 +1,4 @@
-# millennium-digest
+﻿# millennium-digest
 
 Project page: https://juw12.github.io/millennium-digest/
 
@@ -69,3 +69,12 @@ without it, the tool works in drafts-only mode.
 ## Licence
 
 MIT, see `LICENSE`.
+
+## Desktop app
+
+`app/millennium_app.py` shows the dashboard in its own window (pywebview / WebView2), with working buttons.
+Build the .exe:
+
+```npython -m PyInstaller --noconfirm --onedir --windowed --name "Millennium Dashboard" --icon app\icon.ico --distpath app --workpath app\build --specpath app\build app\millennium_app.py
+```
+

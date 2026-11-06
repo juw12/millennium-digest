@@ -10,3 +10,6 @@ gmail_setup.ps1
 __pycache__/
 dashboard/
 weekly.log
+app/build/
+app/Millennium Dashboard/
+app/webview_data/

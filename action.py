@@ -94,29 +94,32 @@ def open_draft(address):
     message(steps)
 
 
-def mark_sent(address):
+def mark_sent(address, rebuild=True):
     ledger = outreach.load_ledger()
     entry = latest_entry(ledger, address)
     if entry is None:
         message(f"{address} is not in the ledger.", MB_OK | MB_ICONWARN)
-        return
+        return False
     if entry["state"] != "drafted":
         message(f"{entry.get('name', address)} is already marked '{entry['state']}'.")
-        return
+        return False
     answer = message(
         f"Did you send the email to {entry.get('name', address)}?\n\n"
         "This marks it as sent and starts the 21-day reply clock.",
         MB_YESNO | MB_ICONINFO,
     )
     if answer != IDYES:
-        return
+        return False
     outreach.mark(address, "sent")
+    if not rebuild:
+        return True
     subprocess.run(
         [str(Path(sys.executable).with_name("python.exe")), str(HERE / "dashboard.py")],
         cwd=HERE,
         creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
     )
     message("Logged as sent. Press F5 on the dashboard to see it.")
+    return True
 
 
 def main():
@@ -130,6 +133,13 @@ def main():
         open_draft(address)
     elif action == "sent":
         mark_sent(address)
+    elif action == "refresh":
+        subprocess.run(
+            [str(Path(sys.executable).with_name("python.exe")), str(HERE / "dashboard.py")],
+            cwd=HERE,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        )
+        message("Dashboard rebuilt. Press F5 to see it.")
     else:
         message(f"Unknown action: {action}", MB_OK | MB_ICONWARN)
 

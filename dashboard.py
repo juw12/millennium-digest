@@ -582,7 +582,7 @@ footer {{ max-width:1180px; margin:0 auto; padding:0 24px 30px; color:var(--mute
 <header class="top"><div class="top-in">
   <div class="brand"><div class="logo">M</div><div><h1>Millennium Dashboard</h1><p>Research monitor &middot; private, stays on this PC</p></div></div>
   <div class="top-meta">{task_chip}<span>Next run {html.escape(next_text)}</span>
-    <a href="{PUBLIC_PAGE}">Public page</a><a href="{REPO}">Code</a></div>
+    <a href="{PUBLIC_PAGE}">Public page</a><a href="{REPO}">Code</a><a class="btn ghost" href="millennium://refresh">Refresh</a></div>
 </div></header>
 <main>
   <div class="kpis">{kpi_html}</div>
