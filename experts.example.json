@@ -1,0 +1,12 @@
+{
+  "researcher@university.edu": {
+    "name": "Dr. Example Researcher",
+    "email_source": "https://university.edu/~researcher (page where the address is published)",
+    "their_work": [
+      "arXiv:0000.00000 - Title of one of their papers"
+    ],
+    "topics": [
+      "murmurations"
+    ]
+  }
+}

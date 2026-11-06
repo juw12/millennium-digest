@@ -1,0 +1,10 @@
+# private data: researcher contacts, outreach ledger, drafts, personal settings
+config.json
+experts.json
+contacts_log.json
+state.json
+digests/
+gmail_setup.ps1
+*_log.txt
+*_err.txt
+__pycache__/

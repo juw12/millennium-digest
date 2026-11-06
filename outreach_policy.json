@@ -1,0 +1,24 @@
+{
+  "_purpose": "Rules that keep expert outreach from being spam. outreach.py refuses to draft anything that breaks a rule.",
+  "never_auto_send": true,
+  "one_recipient_per_email": true,
+  "max_new_drafts_per_30_days": 2,
+  "min_days_between_contacts_same_person": 180,
+  "max_unanswered_emails_per_person": 1,
+  "follow_up_after_days_without_reply": 21,
+  "max_follow_ups_per_person": 1,
+  "max_body_words": 420,
+  "max_attachment_mb": 5,
+  "required_in_body": {
+    "ai_disclosure": ["AI assistant"],
+    "no_obligation_line": ["no reply is needed"],
+    "specific_question": ["?"]
+  },
+  "require_expert_public_email_source": true,
+  "require_personalisation": "body must cite at least one of the expert's own papers listed in experts.json",
+  "require_study_evidence": [
+    "pre-registration file exists",
+    "all gates passed (gates file has no FAIL)",
+    "result is new since the last email on this topic"
+  ]
+}
