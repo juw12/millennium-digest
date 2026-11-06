@@ -1,5 +1,7 @@
 # millennium-digest
 
+Project page: https://juw12.github.io/millennium-digest/
+
 A small personal research tool around the Clay Millennium Prize problems. It has two parts:
 
 1. **Weekly digest** (`millennium_monitor.py`): searches arXiv for papers from the last 8 days on each
@@ -26,6 +28,7 @@ copy config.example.json config.json        # your email and name
 copy experts.example.json experts.json      # researchers you may contact, with a public source for each address
 python millennium_monitor.py                # writes digests/digest_<date>.html and opens it
 python outreach.py status                   # ledger + what the rules allow next
+python make_site.py                         # rebuilds docs/index.html (public parts of the latest digest only)
 ```
 
 To run the digest every Monday at 09:00 (Windows Task Scheduler):
@@ -52,3 +55,7 @@ without it, the tool works in drafts-only mode.
 
 `config.json`, `experts.json`, `contacts_log.json`, `state.json` and `digests/` stay local
 (see `.gitignore`): they hold personal settings, researchers' addresses and the outreach history.
+
+## Licence
+
+MIT, see `LICENSE`.

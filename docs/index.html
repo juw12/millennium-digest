@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Millennium Digest - weekly arXiv watch on the Millennium Prize problems</title>
+<meta name="description" content="A weekly digest of new arXiv papers on the seven Millennium Prize problems, with a drafts-only, rule-checked outreach helper.">
+<style>
+  :root { --ink:#1c2230; --muted:#5b6475; --line:#e3e6ec; --accent:#6d3fd1; --bg:#fbfaf7; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:"Segoe UI",system-ui,-apple-system,Arial,sans-serif; color:var(--ink); background:var(--bg); line-height:1.5; }
+  header { background:#14111f; color:#f4f1ff; padding:56px 20px 44px; }
+  .wrap { max-width:960px; margin:0 auto; padding:0 20px; }
+  h1 { font-size:clamp(2rem,5vw,3rem); margin:0 0 8px; letter-spacing:-0.02em; }
+  .tag { font-size:1.15rem; color:#cfc6f5; max-width:640px; margin:0 0 20px; }
+  .pill { display:inline-block; border:1px solid #4a3d7a; border-radius:999px; padding:4px 12px; margin:0 6px 6px 0; font-size:.9rem; color:#e4dcff; }
+  .cta { display:inline-block; margin-top:14px; background:#b9a5ff; color:#14111f; padding:10px 18px; border-radius:8px; font-weight:600; text-decoration:none; }
+  main { padding:32px 0 56px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:16px; margin:8px 0 32px; }
+  .card { background:#fff; border:1px solid var(--line); border-radius:12px; padding:18px; }
+  .card h2 { font-size:1.1rem; margin:0 0 6px; }
+  .card p, .card li { color:var(--muted); font-size:.97rem; }
+  .card ul { padding-left:18px; margin:6px 0 0; }
+  h2.section { font-size:1.4rem; margin:36px 0 4px; }
+  .sub { color:var(--muted); margin:0 0 12px; }
+  section { background:#fff; border:1px solid var(--line); border-radius:12px; padding:14px 18px; margin:12px 0; }
+  section h3 { font-size:1.02rem; margin:0 0 6px; color:var(--accent); }
+  section ul { list-style:none; padding:0; margin:0; }
+  section li { padding:6px 0; border-top:1px solid #f0f1f4; }
+  section li:first-child { border-top:0; }
+  .date { font-variant-numeric:tabular-nums; color:var(--muted); font-size:.88rem; margin-right:6px; }
+  .authors { display:block; color:var(--muted); font-size:.88rem; }
+  .muted { color:var(--muted); }
+  a { color:#4b2aa8; }
+  pre { background:#14111f; color:#eae6ff; padding:14px; border-radius:10px; overflow-x:auto; font-size:.9rem; }
+  footer { color:var(--muted); font-size:.9rem; padding:24px 0 40px; border-top:1px solid var(--line); }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <h1>Millennium Digest</h1>
+    <p class="tag">Every Monday: the new arXiv papers on the seven Millennium Prize problems, on one page.
+    Plus a helper that keeps emails to researchers polite, rare and hand-sent.</p>
+    <span class="pill">Python, standard library only</span>
+    <span class="pill">Windows Task Scheduler</span>
+    <span class="pill">arXiv API</span>
+    <span class="pill">Drafts only, never auto-sends</span>
+    <br><a class="cta" href="https://github.com/juw12/millennium-digest">View the code on GitHub</a>
+  </div>
+</header>
+<main class="wrap">
+  <div class="grid">
+    <div class="card"><h2>Weekly digest</h2>
+      <p>Searches arXiv for the last 8 days on each problem, plus two narrower topics (elliptic-curve
+      murmurations, Riemann-zero spacing), and flags changes on the Clay problems page and two data sources.</p></div>
+    <div class="card"><h2>Outreach guard</h2>
+      <p>Checks every draft to a researcher against written rules before opening a Gmail compose window,
+      and keeps a ledger of who was contacted and when.</p></div>
+    <div class="card"><h2>Honest scope</h2>
+      <p>A hobby tool by an engineer, not a mathematician. It collects and organises; it does not solve or
+      claim progress on any Millennium problem.</p></div>
+  </div>
+
+  <h2 class="section">Latest digest: 2026-11-06</h2>
+  <p class="sub">28 new papers in the 8 days before the run. Outreach details are private and not shown here.</p>
+  <section><h3>Riemann Hypothesis (11 new)</h3><ul><li><span class="date">2026-11-04</span> <a href="http://arxiv.org/abs/2611.06705v1">3-manifold decision problems and Riemann hypotheses</a><span class="authors">John A. Baldwin, Steven Sivek</span></li>
+<li><span class="date">2026-11-03</span> <a href="http://arxiv.org/abs/2611.05000v1">Almost primes in short intervals and averages of long Dirichlet polynomial approximations to $(ζ&#x27;/ζ)^{k}$</a><span class="authors">Siegfred Baluyot, John Brian Conrey, Ayesha Irfan, Nina C. Snaith</span></li>
+<li><span class="date">2026-11-03</span> <a href="http://arxiv.org/abs/2611.04359v1">RH-Conditional Positivity in a Theta-Kernel Langevin Model</a><span class="authors">U Jin Choi</span></li>
+<li><span class="date">2026-11-02</span> <a href="http://arxiv.org/abs/2611.03924v1">A Hardy space approximation supporting zero-free half-planes for the $ζ$-function</a><span class="authors">Juan Manzur, Gustavo Quintero</span></li>
+<li><span class="date">2026-11-02</span> <a href="http://arxiv.org/abs/2611.02944v1">On some positivity properties of the Riemann $Ξ$ function</a><span class="authors">Suvrit Sra</span></li>
+<li><span class="date">2026-11-01</span> <a href="http://arxiv.org/abs/2611.01905v1">Convergence in law of the maximum of the Riemann zeta function on expanding intervals near the critical line</a><span class="authors">Frédéric Ouimet</span></li>
+<li><span class="date">2026-11-01</span> <a href="http://arxiv.org/abs/2611.01452v1">Improved first moments of primitive quartic and sextic Dirichlet $L$-functions</a><span class="authors">Ziwei Hong</span></li>
+<li><span class="date">2026-11-01</span> <a href="http://arxiv.org/abs/2611.01451v1">A secondary term in the first moment of primitive cubic Dirichlet L-functions</a><span class="authors">Ziwei Hong</span></li>
+<li><span class="date">2026-10-31</span> <a href="http://arxiv.org/abs/2611.00623v2">The distribution of $απ$ modulo one in $\mathbb{F}q(T)$: beyond Matomäki&#x27;s exponent</a><span class="authors">Esrafil Ali Molla</span></li>
+<li><span class="date">2026-10-30</span> <a href="http://arxiv.org/abs/2610.42022v1">Spectral Beurling-Selberg Approximation and Applications to Effective Motivic Chebotarev-Sato-Tate Estimates</a><span class="authors">Yassine El Kaouni</span></li>
+<li><span class="date">2026-10-29</span> <a href="http://arxiv.org/abs/2610.39900v1">The asymptotic number of zonotopes</a><span class="authors">Olivier Bodini, Théophile Buffière</span></li></ul></section><section><h3>Riemann zeros: spacing statistics (our RH study) (0 new)</h3><ul><li class="muted">nothing new</li></ul></section><section><h3>Birch and Swinnerton-Dyer (0 new)</h3><ul><li class="muted">nothing new</li></ul></section><section><h3>Murmurations (our BSD study) (0 new)</h3><ul><li class="muted">nothing new</li></ul></section><section><h3>Navier-Stokes regularity (13 new)</h3><ul><li><span class="date">2026-11-05</span> <a href="http://arxiv.org/abs/2611.07790v1">Singular viscosity-exponent limit for one-dimensional compressible Navier-Stokes equations with far field vacuum</a><span class="authors">Xingyang Zhang</span></li>
+<li><span class="date">2026-11-04</span> <a href="http://arxiv.org/abs/2611.06869v1">Finite-Time Blowup for Navier-Stokes with Smooth Forcing, Part II: Residual Correction via Oscillatory Pulses</a><span class="authors">Zhen Lei, Xiao Ren</span></li>
+<li><span class="date">2026-11-04</span> <a href="http://arxiv.org/abs/2611.06174v1">Optimal Error Estimates With Polynomial Dependence on $ε^{-1}$ for Mixed Finite Element Methods of the Cahn-Hilliard-Navier-Stokes System</a><span class="authors">Haijun Gao, Xi Li, Xiaoli Li</span></li>
+<li><span class="date">2026-11-03</span> <a href="http://arxiv.org/abs/2611.05050v1">From Random Advection to Transport Noise and the LU Framework for the Navier--Stokes Equations</a><span class="authors">Arnaud Debussche, Bérenger Hug, Etienne Mémin</span></li>
+<li><span class="date">2026-11-03</span> <a href="http://arxiv.org/abs/2611.04881v1">From Navier-Stokes to Measure-Valued Euler-Brinkman Equations: Homogenization in the Inviscid Limit</a><span class="authors">Richard M. Höfer, Eleni Hübner-Rosenau</span></li>
+<li><span class="date">2026-11-02</span> <a href="http://arxiv.org/abs/2611.03519v1">Stability of negative-regularity mixing and applications to stochastic fluids</a><span class="authors">Antonio Agresti, William Cooperman, Patrick Flynn</span></li>
+<li><span class="date">2026-11-02</span> <a href="http://arxiv.org/abs/2611.02831v1">The anelastic approximation and convergence rate for the compressible Navier-Stokes equations with ill-prepared data in bounded domains</a><span class="authors">Yaobin Ou, Ping Wang</span></li>
+<li><span class="date">2026-11-02</span> <a href="http://arxiv.org/abs/2611.02557v1">Regularizing the Navier-Stokes Equations by One Noise Component</a><span class="authors">Felix Brandt, Igor Kukavica</span></li>
+<li><span class="date">2026-10-31</span> <a href="http://arxiv.org/abs/2611.01026v1">Far-field Layers of Steady State for Viscous and Heat-conductive Gas</a><span class="authors">Akitaka Matsumura, Masahiro Suzuki</span></li>
+<li><span class="date">2026-10-31</span> <a href="http://arxiv.org/abs/2611.00649v1">Weighted $L^q$-$L^r$ estimates of a generalized Oseen evolution operator in exterior domains, with applications to the Navier-Stokes flow past a rigid body</a><span class="authors">Yosuke Asami</span></li>
+<li><span class="date">2026-10-30</span> <a href="http://arxiv.org/abs/2610.41947v1">Turbulence on Hybrid Lattices: regular grids meet self similar cascade models</a><span class="authors">Lorenzo Manfredini, Özgür D. Gürcan, Sai Swetha Venkata Kolluru, Berengere Dubrulle</span></li>
+<li><span class="date">2026-10-30</span> <a href="http://arxiv.org/abs/2610.41637v1">Global existence and uniqueness of Lions&#x27; weak solutions for the 2D inhomogeneous Navier-Stokes equations in bounded domains</a><span class="authors">Hongyu Wang</span></li>
+<li><span class="date">2026-10-30</span> <a href="http://arxiv.org/abs/2610.41507v1">Blow-up suppression for the 2D parabolic-parabolic Patlak-Keller-Segel-Navier-Stokes system</a><span class="authors">Xiaomeng Chen, Shikun Cui, Wendong Wang, Yi Zhang</span></li></ul></section><section><h3>Yang-Mills mass gap (0 new)</h3><ul><li class="muted">nothing new</li></ul></section><section><h3>P vs NP (4 new)</h3><ul><li><span class="date">2026-11-05</span> <a href="http://arxiv.org/abs/2611.08304v1">Hardness of integer linear feasibility with cyclic support</a><span class="authors">Marco Di Summa</span></li>
+<li><span class="date">2026-11-04</span> <a href="http://arxiv.org/abs/2611.06782v2">Target PageRank: Matching Prescribed PageRank Scores via Budgeted Edge Additions</a><span class="authors">Parth Gupta, Abhinav Jain, Avishek Mukhopadhyay, Amitabha Bagchi, Sayan Ranu, Abhijnan Chakraborty</span></li>
+<li><span class="date">2026-11-04</span> <a href="http://arxiv.org/abs/2611.05878v1">Improved Bounds on Distance Preservers</a><span class="authors">Yanyu Chen, Yu Chen, Zihan Tan, Mingyang Yang</span></li>
+<li><span class="date">2026-10-29</span> <a href="http://arxiv.org/abs/2610.40369v1">Half-Optimal Induced Matchings in Random Graphs: Online and Low-Degree Algorithms</a><span class="authors">Abhishek Dhawan, Eren C. Kızıldağ, Neeladri Maitra, Cheng Mao, Timothy L. H. Wee</span></li></ul></section><section><h3>Hodge conjecture (0 new)</h3><ul><li class="muted">nothing new</li></ul></section><section><h3>Watched pages and data sources</h3><ul><li>Clay Millennium Problems page: CHANGED, have a look <a href="https://www.claymath.org/millennium-problems/">source</a></li>
+<li>Cremona elliptic curve tables: unchanged <a href="https://johncremona.github.io/ecdata/">source</a></li>
+<li>Odlyzko zeta zero tables: unchanged <a href="https://www-users.cse.umn.edu/~odlyzko/zeta_tables/index.html">source</a></li></ul></section>
+
+  <h2 class="section">Outreach rules</h2>
+  <p class="sub">From outreach_policy.json. A draft that breaks any rule is refused.</p>
+  <div class="card"><ul><li>Never sends on its own: it opens a draft, you press Send</li>
+<li>One recipient per email</li>
+<li>At most 2 new contacts per 30 days</li>
+<li>180 days between contacts with the same person</li>
+<li>At most 1 follow-up, after 21 days</li>
+<li>Body under 420 words, with an AI-assistance disclosure</li>
+<li>A &quot;no reply is needed&quot; line and one specific question</li>
+<li>Must cite the researcher&#x27;s own work and a public source for their address</li></ul></div>
+
+  <h2 class="section">Run it</h2>
+  <pre>copy config.example.json config.json
+python millennium_monitor.py      # writes and opens digests/digest_&lt;date&gt;.html
+python outreach.py status         # ledger + what the rules allow next
+python make_site.py               # rebuilds this page from the latest digest</pre>
+</main>
+<footer class="wrap">Built by Juwen Lie. Paper titles and links come from the arXiv API; all papers belong to their authors.
+Code: <a href="https://github.com/juw12/millennium-digest">github.com/juw12/millennium-digest</a> (MIT licence).</footer>
+</body>
+</html>
