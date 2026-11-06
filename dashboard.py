@@ -331,4 +331,8 @@ def build():
 if __name__ == "__main__":
     build()
     if "--open" in sys.argv:
-        webbrowser.open(OUT.resolve().as_uri())
+        edge = Path(r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe")
+        if edge.exists():
+            subprocess.Popen([str(edge), "--new-window", OUT.resolve().as_uri()])
+        else:
+            webbrowser.open(OUT.resolve().as_uri())
