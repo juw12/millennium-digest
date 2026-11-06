@@ -38,6 +38,16 @@ schtasks /Create /TN "Millennium research digest" /SC WEEKLY /D MON /ST 09:00 ^
   /TR "\"C:\path\to\python.exe\" \"C:\path\to\millennium_monitor.py\""
 ```
 
+## Weekly job and dashboard
+
+`weekly.py` is what the Monday task runs: digest, then `make_site.py`, then it commits and pushes only
+`docs/index.html` (and refuses if the page contains a private marker), then rebuilds the dashboard.
+Each step is logged to `weekly.log`.
+
+`dashboard.py --open` builds a private local page (`dashboard/index.html`, never committed) with:
+what needs you this week, new papers per topic with a trend, the outreach ledger with holds and
+follow-up dates, study status and report links, and the result of the last automatic run.
+
 ## Outreach commands
 
 ```

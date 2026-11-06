@@ -8,3 +8,5 @@ gmail_setup.ps1
 *_log.txt
 *_err.txt
 __pycache__/
+dashboard/
+weekly.log
