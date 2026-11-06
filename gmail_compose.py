@@ -6,6 +6,8 @@ How it works (no password or API key is stored):
   * The script opens Gmail's compose page with To / Subject / Body filled in, waits until Gmail has
     loaded, then puts the PDF into Gmail's own "Attach files" input and waits until the upload shows.
   * It does not connect to the window while the Google sign-in page is open.
+  * Once Gmail shows "Draft saved", it closes that compose tab and opens your pinned Gmail app
+    (Chrome, taskbar) on Drafts, where you read the email and press Send yourself.
 
   python gmail_compose.py <address>    open the logged draft for <address> (from contacts_log.json)
   python gmail_compose.py --reply <address>   open your drafted answer to someone who replied
@@ -14,6 +16,7 @@ How it works (no password or API key is stored):
 import ctypes
 import json
 import os
+import re
 import subprocess
 import sys
 import threading
@@ -115,7 +118,23 @@ def wait_for_gmail(started_at):
     raise RuntimeError("Gave up waiting for the Gmail sign-in (10 minutes).")
 
 
-def attach(attachment, subject):
+CHROME = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
+SAVE_WAIT_S = 45
+
+
+def open_pinned_gmail_drafts():
+    """Opens the Gmail app pinned on the taskbar (Chrome --app) at the Drafts folder."""
+    drafts_url = f"https://mail.google.com/mail/u/?authuser={outreach.GMAIL_ACCOUNT}#drafts"
+    if Path(CHROME).exists():
+        subprocess.Popen([CHROME, f"--app={drafts_url}"])
+    else:
+        subprocess.Popen([outreach.EDGE, "--profile-directory=Default", f"--app={drafts_url}"])
+
+
+def save_draft(attachment, subject):
+    """Fills in the attachment (if any), waits until Gmail says the draft is saved, then closes the
+    compose tab. The draft stays in Gmail's Drafts folder; nothing is sent.
+    Returns (attached, subject_ok, saved)."""
     os.environ["NO_PROXY"] = "127.0.0.1,localhost"  # Playwright's CDP link must bypass px too
     from playwright.sync_api import sync_playwright
 
@@ -123,21 +142,34 @@ def attach(attachment, subject):
         browser = playwright.chromium.connect_over_cdp(f"http://127.0.0.1:{DEBUG_PORT}")
         pages = [p for c in browser.contexts for p in c.pages if p.url.startswith("https://mail.google.com/")]
         page = pages[-1]
-        page.bring_to_front()
-        file_input = page.locator('input[type="file"][name="Filedata"]').last
-        file_input.wait_for(state="attached", timeout=60_000)
         page.wait_for_selector('input[name="subjectbox"]', timeout=60_000)
-        file_input.set_input_files(str(attachment))
-        chip = page.locator(f'[aria-label*="{Path(attachment).name}"], div:text-is("{Path(attachment).name}")')
-        chip.first.wait_for(state="visible", timeout=UPLOAD_WAIT_S * 1000)
-        progress = page.locator('div[role="progressbar"]')
-        deadline = time.time() + UPLOAD_WAIT_S
-        while progress.count() and time.time() < deadline:
-            time.sleep(0.5)
-        attached = chip.count() > 0
-        subject_now = page.locator('input[name="subjectbox"]').last.input_value()
-        # Leave Edge and the draft open for you; just disconnect.
-    return attached, subject_now == subject
+        attached = True
+        if attachment:
+            file_input = page.locator('input[type="file"][name="Filedata"]').last
+            file_input.wait_for(state="attached", timeout=60_000)
+            file_input.set_input_files(str(attachment))
+            name = Path(attachment).name
+            chip = page.locator(f'[aria-label*="{name}"], div:text-is("{name}")')
+            chip.first.wait_for(state="visible", timeout=UPLOAD_WAIT_S * 1000)
+            progress = page.locator('div[role="progressbar"]')
+            deadline = time.time() + UPLOAD_WAIT_S
+            while progress.count() and time.time() < deadline:
+                time.sleep(0.5)
+            attached = chip.count() > 0
+        subject_ok = page.locator('input[name="subjectbox"]').last.input_value() == subject
+        # Gmail autosaves; wait for its "Draft saved" / "Saved" note before closing the tab.
+        saved = False
+        deadline = time.time() + SAVE_WAIT_S
+        while time.time() < deadline:
+            note = page.get_by_text(re.compile(r"^\s*(Draft )?[Ss]aved\s*$"))
+            if note.count() and note.first.is_visible():
+                saved = True
+                break
+            time.sleep(1.0)
+        if saved and attached:
+            time.sleep(1.5)
+            page.close()
+    return attached, subject_ok, saved
 
 
 def compose(to, subject, body, attachment):
@@ -145,15 +177,21 @@ def compose(to, subject, body, attachment):
     open_compose_tab(outreach.gmail_compose_url(to, subject, body))
     wait_for_gmail(started_at)
     time.sleep(1.0)
-    if not attachment:
-        return "Gmail is open with the email filled in. Read it, press Send, then click 'I sent it'."
-    attached, subject_ok = attach(attachment, subject)
-    if not attached:
+    attached, subject_ok, saved = save_draft(attachment, subject)
+    if attachment and not attached:
         raise RuntimeError("Gmail opened, but the PDF upload did not finish; attach it by hand.")
     note = "" if subject_ok else "\n(Check the subject line; it did not match the ledger.)"
+    with_pdf = f" with {Path(attachment).name} attached" if attachment else ""
+    if not saved:
+        return (
+            f"The draft{with_pdf} is open in Gmail, but Gmail has not confirmed it is saved yet, "
+            "so I left that window open.\nRead it, press Send, then click 'I sent it'." + note
+        )
+    open_pinned_gmail_drafts()
     return (
-        f"Draft ready in Gmail with {Path(attachment).name} attached.\n\n"
-        "Read it once, press Send, then click 'I sent it' on the dashboard." + note
+        f"Draft saved in your Gmail Drafts{with_pdf}.\n\n"
+        "Your pinned Gmail app is opening on Drafts: open it, read it once, press Send, "
+        "then click 'I sent it' on the dashboard." + note
     )
 
 
