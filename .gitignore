@@ -15,3 +15,7 @@ app/Millennium Dashboard/
 app/webview_data/
 edge_gmail_profile/
 gmail_compose.log
+# local app state: activity log, dismissed page changes, per-problem notes (names researchers)
+activity_log.jsonl
+ui_state.json
+roadmap.json

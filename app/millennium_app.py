@@ -53,7 +53,8 @@ document.addEventListener('click', function (event) {
 
 def load_modules():
     modules = {}
-    for name in ("dashboard_charts", "dashboard", "outreach", "action"):
+    # order matters: helpers first, so dashboard/action pick up the freshly reloaded versions
+    for name in ("dashboard_charts", "history", "progress", "dashboard_extras", "dashboard", "outreach", "action"):
         if name in sys.modules:
             modules[name] = importlib.reload(sys.modules[name])
         else:
@@ -76,14 +77,12 @@ class Api:
             scheme = parsed.scheme.lower()
             if scheme == "millennium":
                 action = parsed.netloc.lower()
-                address = urllib.parse.unquote(parsed.path.strip("/")).lower()
+                argument = urllib.parse.unquote(parsed.path.strip("/"))
                 modules = load_modules()
-                if action == "open":
-                    modules["action"].open_draft(address)
-                elif action == "sent":
-                    if modules["action"].mark_sent(address, rebuild=False):
-                        self.rebuild_and_show()
-                elif action == "refresh":
+                if action != "seen":
+                    argument = argument.lower()
+                # all button logic lives in action.handle(), read from the folder: new buttons need no rebuild
+                if modules["action"].handle(action, argument, in_app=True):
                     self.rebuild_and_show()
             elif scheme in ("http", "https"):
                 webbrowser.open(href)

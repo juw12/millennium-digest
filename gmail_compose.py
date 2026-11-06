@@ -8,6 +8,7 @@ How it works (no password or API key is stored):
   * It does not connect to the window while the Google sign-in page is open.
 
   python gmail_compose.py <address>    open the logged draft for <address> (from contacts_log.json)
+  python gmail_compose.py --reply <address>   open your drafted answer to someone who replied
   python gmail_compose.py --test       compose a test email to yourself with the BSD report attached
 """
 import ctypes
@@ -165,6 +166,15 @@ def main():
         subject = "Millennium Dashboard test - attachment check (do not send)"
         body = "Test of the Open draft button. Delete this draft.\n"
         attachment = HERE.parent / "bsd_project" / "report" / "Murmuration_amplitude_report.pdf"
+    elif sys.argv[1] == "--reply" and len(sys.argv) > 2:
+        import action
+
+        draft = action._reply_draft(sys.argv[2].lower())
+        if draft is None:
+            message(f"No drafted reply for {sys.argv[2]} in the outbox folder.", MB_ICONWARN)
+            return
+        to, subject, body = draft
+        attachment = None
     else:
         address = sys.argv[1].lower()
         entries = [c for c in outreach.load_ledger()["contacts"] if c["to"] == address and c["state"] == "drafted"]

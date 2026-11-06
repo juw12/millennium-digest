@@ -18,6 +18,8 @@ import webbrowser
 from urllib.parse import quote
 
 import dashboard_charts as charts
+import dashboard_extras as extras
+import history as activity_history
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -402,7 +404,14 @@ def build():
             f'<span class="kpi-note">{html.escape(note)}</span></div>'
         )
 
-    todo_html = "".join(render_action(a) for a in actions) or '<p class="empty">Nothing needs you right now.</p>'
+    todo_html = extras.needs_you(rows, ledger, policy, latest)
+    progress_html = extras.problems_section(ledger, policy)
+    history_html = extras.history_section(ledger)
+    version_list = activity_history.versions()
+    version_chip = (
+        f'<a class="chip neutral" href="#versions" title="{html.escape(version_list[0]["subject"])}">'
+        f'{html.escape(version_list[0]["version"])}</a>' if version_list else ""
+    )
 
     # papers chart
     if latest:
@@ -577,19 +586,22 @@ footer {{ max-width:1180px; margin:0 auto; padding:0 24px 30px; color:var(--mute
   .table-wrap td:nth-child(2), .table-wrap td:nth-child(3), .table-wrap td:nth-child(4) {{ display:inline-block; width:auto; margin-right:8px; }}
   .hb-row {{ grid-template-columns:minmax(110px,46%) 1fr 24px; }}
 }}
+{extras.EXTRA_CSS}
 </style></head>
 <body>
 <header class="top"><div class="top-in">
   <div class="brand"><div class="logo">M</div><div><h1>Millennium Dashboard</h1><p>Research monitor &middot; private, stays on this PC</p></div></div>
-  <div class="top-meta">{task_chip}<span>Next run {html.escape(next_text)}</span>
+  <div class="top-meta">{task_chip}{version_chip}<span>Next run {html.escape(next_text)}</span>
     <a href="{PUBLIC_PAGE}">Public page</a><a href="{REPO}">Code</a><a class="btn ghost" href="millennium://refresh">Refresh</a></div>
 </div></header>
 <main>
   <div class="kpis">{kpi_html}</div>
 
   <section class="card"><div class="card-head"><div><h2>Needs you</h2>
-    <p class="sub">Open draft + PDF opens the email in Gmail with the PDF already attached; read it, press Send, then click I sent it.</p></div></div>
+    <p class="sub">Every item has its buttons. Nothing is ever sent for you: emails open in Gmail and you press Send.</p></div></div>
     {todo_html}</section>
+
+  {progress_html}
 
   <div class="grid2">
     <section class="card"><div class="card-head"><div><h2>New papers this week</h2>
@@ -603,6 +615,8 @@ footer {{ max-width:1180px; margin:0 auto; padding:0 24px 30px; color:var(--mute
   </div>
 
   <div class="grid2">{research_html}</div>
+
+  {history_html}
 
   <section class="card"><details><summary>Weekly job log</summary><div class="log">{log_html}</div></details></section>
 </main>
