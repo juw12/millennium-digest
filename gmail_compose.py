@@ -12,6 +12,7 @@ How it works (no password or API key is stored):
 """
 import ctypes
 import json
+import os
 import subprocess
 import sys
 import threading
@@ -33,6 +34,8 @@ TITLE = "Millennium Dashboard"
 MB_ICONINFO = 0x40
 MB_ICONWARN = 0x30
 MB_TOPMOST = 0x40000
+# Talk to the local Edge window directly, never through HTTP(S)_PROXY (px answers 502 for localhost).
+LOCAL = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 
 
 LOG_FILE = HERE / "gmail_compose.log"
@@ -51,7 +54,7 @@ def message(text, flags=MB_ICONINFO):
 def tabs():
     """Tab list from Edge's local control port, or None if this Edge window is not running."""
     try:
-        with urllib.request.urlopen(f"http://127.0.0.1:{DEBUG_PORT}/json/list", timeout=2) as response:
+        with LOCAL.open(f"http://127.0.0.1:{DEBUG_PORT}/json/list", timeout=2) as response:
             return [t for t in json.load(response) if t.get("type") == "page"]
     except OSError:
         return None
@@ -77,12 +80,12 @@ def open_compose_tab(url):
     else:
         for tab in tabs():
             if "accounts.google.com" in tab["url"]:
-                urllib.request.urlopen(f"http://127.0.0.1:{DEBUG_PORT}/json/close/{tab['id']}", timeout=5).close()
+                LOCAL.open(f"http://127.0.0.1:{DEBUG_PORT}/json/close/{tab['id']}", timeout=5).close()
         request = urllib.request.Request(
             f"http://127.0.0.1:{DEBUG_PORT}/json/new?{urllib.parse.quote(url, safe='')}",
             method="PUT",
         )
-        urllib.request.urlopen(request, timeout=5).close()
+        LOCAL.open(request, timeout=5).close()
 
 
 def wait_for_gmail(started_at):
@@ -112,6 +115,7 @@ def wait_for_gmail(started_at):
 
 
 def attach(attachment, subject):
+    os.environ["NO_PROXY"] = "127.0.0.1,localhost"  # Playwright's CDP link must bypass px too
     from playwright.sync_api import sync_playwright
 
     with sync_playwright() as playwright:
