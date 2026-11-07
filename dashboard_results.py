@@ -54,6 +54,40 @@ def _rh_rows():
     )
 
 
+def _local_type_rows():
+    """F10: EC murmuration by local reduction type, scale vs the even semistable curve (largest range)."""
+    data = _read(BSD_THEORY / "local_type_split.json")
+    if not data or "vs_ss_even_all_classes" not in data:
+        return ""
+    labels = {
+        "ss_odd": "semistable, N odd", "addodd_only": "additive at odd p", "add2_only": "additive at 2",
+        "add_both": "additive at 2 and odd p",
+    }
+    block = data["vs_ss_even_all_classes"].get("10000_20000", {})
+    counts = data["ranges"].get("10000_20000", {})
+    return "".join(
+        f"<tr><td>{labels[name]}</td><td class='num'>{counts.get(name, {}).get('n_curves', '-')}</td>"
+        f"<td class='num'>{row['scale_vs_ss_even']:.2f} {_ci(row['ci95'])}</td>"
+        f"<td class='num'>{row['shape_corr_vs_ss_even']:.2f}</td></tr>"
+        for name, row in block.items() if name in labels
+    )
+
+
+def _queue_items():
+    """Research queue: computer jobs (run nightly) and tasks that need the next AI session."""
+    queue = _read(ROOT / "research_queue.json") or {"jobs": []}
+    open_jobs = [job for job in queue["jobs"] if job.get("status") in ("pending", "running", "failed", "needs_ai")]
+    if not open_jobs:
+        return "<li><b>Queue empty</b> &middot; new research needed (ask the AI to add the next study)</li>"
+    names = {"pending": "computer, nightly", "running": "running now", "failed": "failed, will retry",
+             "needs_ai": "needs AI session"}
+    return "".join(
+        f"<li><span class='chip {'warn' if job['status'] == 'needs_ai' else 'neutral'}'>{names[job['status']]}</span> "
+        f"{html.escape(job['title'])}</li>"
+        for job in open_jobs
+    )
+
+
 def results_section():
     return f"""
 <section class="card anchor" id="results"><div class="card-head"><div><h2>Research results</h2>
@@ -69,6 +103,16 @@ def results_section():
    <div class="table-wrap"><table><tr><th>height</th><th>N<sub>eff</sub></th><th>A</th><th>95% CI</th></tr>
    {_rh_rows()}</table></div>
    <p class="note">Slow rise toward 1 (post-hoc, exploratory). LMFDB has no zeros above about 3&middot;10<sup>10</sup>.</p></div>
+  </div>
+  <div class="grid2" style="margin-top:12px">
+  <div><h3 style="font-size:13.5px;margin:0 0 6px">BSD &middot; murmuration by local reduction type (vs even semistable, N 10000-19999)</h3>
+   <div class="table-wrap"><table><tr><th>conductor type</th><th>curves</th><th>scale</th><th>shape corr</th></tr>
+   {_local_type_rows()}</table></div>
+   <p class="note">Only curves semistable everywhere and good at 2 have the shallow "odd" shape; odd conductors with
+   additive reduction look like even ones (F10, exploratory, same in three N ranges).</p></div>
+  <div><h3 style="font-size:13.5px;margin:0 0 6px">Research queue</h3>
+   <ul class="plain">{_queue_items()}</ul>
+   <p class="note">Computer jobs run every night at 02:00. "Needs AI session" items are new code or drafts for the next session.</p></div>
   </div>
   <p class="links"><a href="https://juw12.github.io/millennium-digest/results.html">Public results page</a></p>
 </section>"""

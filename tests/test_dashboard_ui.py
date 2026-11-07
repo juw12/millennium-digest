@@ -372,7 +372,22 @@ def run_browser_checks():
             browser.close()
 
 
+def start_watchdog(limit_seconds=600):
+    """Fail (exit 1) instead of hanging forever if the browser stalls; a stuck gate is worse than a failed one."""
+    import os
+    import threading
+
+    def expire():
+        print(f"FAIL whole test exceeded {limit_seconds}s (browser stalled) - treated as a failure")
+        os._exit(1)
+
+    timer = threading.Timer(limit_seconds, expire)
+    timer.daemon = True
+    timer.start()
+
+
 def main():
+    start_watchdog()
     if "--no-build" not in sys.argv:
         result = subprocess.run([sys.executable, "dashboard.py", "--no-open"], cwd=HERE,
                                 capture_output=True, text=True, timeout=180)
