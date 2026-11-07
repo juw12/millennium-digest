@@ -1,0 +1,92 @@
+{
+  "_note": "Paid math problems / bounties. Checked by web search 2026-11-07. prize_watch.py re-checks every link weekly. 'fit' = how realistic for us (computation-friendly = high; needs a real proof = low).",
+  "prizes": [
+    {
+      "name": "Squares in Squares (Kaggle)",
+      "sponsor": "Google LLC",
+      "amount": "$50,000 prize pool",
+      "task": "Pack n unit squares (n = 1..1000) into the smallest square; score = sum of (L/sqrt(n) - 1). Pure optimisation, no proof needed.",
+      "eligibility": "Kaggle account, adult, not in a sanctioned region; teams up to 5",
+      "deadline": "entry 2027-07-11, final 2027-07-18",
+      "url": "https://www.kaggle.com/competitions/squares-in-squares",
+      "fit": "high",
+      "status": "open"
+    },
+    {
+      "name": "Conjectures.io bounties",
+      "sponsor": "Conjectures.io (paid in Bittensor alpha tokens)",
+      "amount": "per problem (e.g. about $4,700 listed); 272 live bounties",
+      "task": "Proof of a stated conjecture, checked by the Lean proof assistant. Why: needs a real machine-checked proof; crypto payout.",
+      "eligibility": "anyone; AI help allowed if the proof is original",
+      "deadline": "rolling",
+      "url": "https://conjectures.io/problems",
+      "fit": "low",
+      "status": "open"
+    },
+    {
+      "name": "Erd\u0151s problems prizes",
+      "sponsor": "various (Erd\u0151s-tradition prizes)",
+      "amount": "about $59,700 in total across listed problems",
+      "task": "Solve a listed Erd\u0151s problem (proof or counterexample). Why: some ask for a counterexample, which computation can find.",
+      "eligibility": "anyone",
+      "deadline": "none",
+      "url": "https://www.erdosproblems.com/prizes",
+      "fit": "low-medium",
+      "status": "open"
+    },
+    {
+      "name": "Collatz conjecture prize",
+      "sponsor": "Bakuage Co. (Japan)",
+      "amount": "120,000,000 yen",
+      "task": "Proof or disproof, accepted by a qualifying journal",
+      "eligibility": "anyone",
+      "deadline": "2037-12-31",
+      "url": "https://prizeproblems.org/problems/142/",
+      "fit": "very low",
+      "status": "open"
+    },
+    {
+      "name": "Beal Prize",
+      "sponsor": "American Mathematical Society (A. Beal)",
+      "amount": "$1,000,000",
+      "task": "Proof or counterexample of the Beal conjecture",
+      "eligibility": "anyone; published and accepted",
+      "deadline": "none",
+      "url": "https://www.ams.org/profession/prizes-awards/ams-supported/beal-prize",
+      "fit": "very low",
+      "status": "open"
+    },
+    {
+      "name": "Millennium Prize Problems",
+      "sponsor": "Clay Mathematics Institute",
+      "amount": "$1,000,000 each",
+      "task": "Published proof accepted for 2 years. Why: our work is evidence, not proof.",
+      "eligibility": "anyone",
+      "deadline": "none",
+      "url": "https://www.claymath.org/millennium-problems/",
+      "fit": "very low",
+      "status": "open"
+    },
+    {
+      "name": "AIMO Prize",
+      "sponsor": "XTX Markets",
+      "amount": "was $10M fund",
+      "task": "AI model solving olympiad problems",
+      "eligibility": "-",
+      "deadline": "-",
+      "url": "https://www.aimoprize.com/updates/2026-09-16-update-on-xtx-markets-ai-philanthropy",
+      "fit": "-",
+      "status": "closed (discontinued 2026-09-16)"
+    }
+  ],
+  "registries": [
+    {
+      "name": "Limits Registry - verified prizes and bounties",
+      "url": "https://www.limitsregistry.com/bounties"
+    },
+    {
+      "name": "Prize Problem Ledger",
+      "url": "https://prizeproblems.org/"
+    }
+  ]
+}

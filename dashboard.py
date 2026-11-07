@@ -21,6 +21,7 @@ from urllib.parse import quote
 
 import dashboard_charts as charts
 import dashboard_extras as extras
+import dashboard_results as results_ui
 import dashboard_interactive
 import history as activity_history
 from pathlib import Path
@@ -499,6 +500,9 @@ def build():
         ("progress", "Problems", ""),
         ("papers", "Papers", ""),  # red badges are only for things that need you
         ("outreach", "Outreach", ""),
+        ("results", "Results", ""),
+        ("evidence", "Evidence", ""),
+        ("prizes", "Prizes", ""),
         ("studies", "Studies", ""),
         ("activity", "Activity", ""),
     ])
@@ -622,7 +626,7 @@ footer {{ max-width:1180px; margin:0 auto; padding:0 24px 30px; color:var(--mute
   <div class="kpis">{kpi_html}</div>
 
   <section class="card" id="needs"><div class="card-head"><div><h2>Needs you</h2>
-    <p class="sub">Every item has its buttons. Nothing is ever sent for you: emails open in Gmail and you press Send.</p></div></div>
+    <p class="sub">Every item has its buttons. Follow-ups are sent automatically; other emails open in Gmail and you press Send.</p></div></div>
     {todo_html}</section>
 
   {progress_html}
@@ -632,11 +636,15 @@ footer {{ max-width:1180px; margin:0 auto; padding:0 24px 30px; color:var(--mute
       <p class="sub">arXiv, last 8 days, keyword matches per topic &middot; click a bar or search to browse</p></div></div>
       <div class="chart">{papers_svg}</div><p class="note">{papers_note}</p></section>
     <section class="card" id="outreach"><div class="card-head"><div><h2>Outreach pipeline</h2>
-      <p class="sub">Drafts only &middot; you always press Send</p></div></div>
+      <p class="sub">Follow-ups auto-send &middot; first emails and replies are drafts</p></div></div>
       <div class="chart">{pipeline_svg}</div>
       <div class="table-wrap"><table><tr><th>Who</th><th>Topic</th><th>State</th><th>Date</th><th>Next step</th><th></th></tr>
       {outreach_rows}</table></div></section>
   </div>
+
+  {results_ui.results_section()}
+  {results_ui.evidence_section()}
+  {results_ui.prizes_section()}
 
   <div class="grid2 anchor" id="studies">{research_html}</div>
 

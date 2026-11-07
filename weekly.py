@@ -89,6 +89,11 @@ def site_and_publish():
     log(f"publish: push exit {code}  {tail}")
 
 
+def prize_watch():
+    code, tail = run([PYTHON, "prize_watch.py"])
+    log(f"prize watch: exit {code}  {tail}")
+
+
 def dashboard():
     code, tail = run([PYTHON, "dashboard.py"])
     log(f"dashboard: exit {code}  {tail}")
@@ -99,6 +104,7 @@ def main():
     if "--skip-digest" not in sys.argv:
         step("digest", digest)
     step("publish", site_and_publish)
+    step("prize watch", prize_watch)
     step("dashboard", dashboard)
     log("weekly run finished")
 
