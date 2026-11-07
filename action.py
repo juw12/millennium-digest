@@ -36,6 +36,17 @@ MB_TOPMOST = 0x40000
 IDYES = 6
 
 
+import threading as _threading
+import builtins as _builtins
+
+# one lock for the whole app process, kept on builtins so module reloads do not create a second lock
+if not hasattr(_builtins, "_millennium_busy"):
+    _builtins._millennium_busy = _threading.Lock()
+_BUSY = _builtins._millennium_busy
+_LAST_BUILD = 0.0
+MIN_REBUILD_S = 8
+
+
 def message(text, flags=MB_OK | MB_ICONINFO):
     return ctypes.windll.user32.MessageBoxW(None, text, TITLE, flags | MB_TOPMOST)
 
@@ -316,17 +327,22 @@ def mark_seen(page):
 
 
 def reload_app_window():
-    """Rebuilds the page and makes the desktop window really reload it.
-    The app's own rebuild_and_show() points the window at the URL it already shows, which WebView2
-    ignores, so new data never appeared. A JavaScript reload always re-reads the file."""
+    """Rebuilds the page and points the desktop window at it with a fresh ?t= stamp.
+    A different URL always makes WebView2 re-read the file, and load_url does not wait for an answer
+    (the old evaluate_js("location.reload()") waited for a reply that never came, which froze the app)."""
+    import time as _time
     import dashboard
     import webview  # bundled in the desktop app; only called when running inside it
 
-    dashboard.build()
+    global _LAST_BUILD
+    if _time.time() - _LAST_BUILD > MIN_REBUILD_S:
+        dashboard.build()
+        _LAST_BUILD = _time.time()
     windows = list(getattr(webview, "windows", []))
+    url = dashboard.OUT.resolve().as_uri() + f"?t={int(_time.time())}"
     _app_log(f"reload_app_window: {len(windows)} window(s)")
     for window in windows:
-        window.evaluate_js("window.location.reload()")
+        window.load_url(url)
     return bool(windows)
 
 
@@ -337,15 +353,25 @@ def _app_log(text):
 
 def handle(action, argument, in_app=False):
     """Run one button. Returns True when the caller should rebuild the page itself.
-    Inside the desktop app the rebuild + reload happens here (see reload_app_window)."""
-    result = _dispatch(action, argument, in_app)
-    if result and in_app:
-        try:
-            if reload_app_window():
-                return False
-        except Exception as error:
-            _app_log(f"reload_app_window failed: {error!r}")  # fall back to the app's own rebuild
-    return result
+    Only one action runs at a time: a 10-second background poll that arrives while something else is
+    busy is simply skipped, so polls can never pile up and freeze the window."""
+    if action == "poll":
+        if not _BUSY.acquire(blocking=False):
+            return False
+    elif not _BUSY.acquire(timeout=30):
+        _app_log(f"busy: skipped {action}")
+        return False
+    try:
+        result = _dispatch(action, argument, in_app)
+        if result and in_app:
+            try:
+                if reload_app_window():
+                    return False
+            except Exception as error:
+                _app_log(f"reload_app_window failed: {error!r}")  # fall back to the app's own rebuild
+        return result
+    finally:
+        _BUSY.release()
 
 
 def _dispatch(action, argument, in_app=False):

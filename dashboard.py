@@ -512,6 +512,7 @@ def build():
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Millennium Dashboard</title>
+<link rel="icon" href="logo.svg">
 <style>
 :root {{
   --bg:#f6f7f9; --card:#fff; --ink:#0f172a; --ink2:#334155; --muted:#64748b; --line:#e5e7eb;
@@ -525,8 +526,8 @@ a {{ color:var(--accent); text-decoration:none; }} a:hover {{ text-decoration:un
 .top {{ background:var(--card); border-bottom:1px solid var(--line); position:sticky; top:0; z-index:5; }}
 .top-in {{ max-width:1180px; margin:0 auto; padding:14px 24px; display:flex; align-items:center; gap:16px; flex-wrap:wrap; }}
 .brand {{ display:flex; align-items:center; gap:12px; margin-right:auto; }}
-.logo {{ width:34px; height:34px; border-radius:9px; background:linear-gradient(135deg,#4f46e5,#7c3aed);
-  color:#fff; display:grid; place-items:center; font-weight:700; font-size:15px; }}
+.logo {{ width:34px; height:34px; display:grid; place-items:center; filter:drop-shadow(0 2px 6px rgba(79,70,229,.35)); }}
+.logo svg {{ display:block; }}
 .brand h1 {{ font-size:16px; margin:0; letter-spacing:-.01em; }}
 .brand p {{ margin:0; color:var(--muted); font-size:12px; }}
 .top-meta {{ display:flex; align-items:center; gap:14px; color:var(--muted); font-size:12.5px; flex-wrap:wrap; }}
@@ -617,7 +618,7 @@ footer {{ max-width:1180px; margin:0 auto; padding:0 24px 30px; color:var(--mute
 </style></head>
 <body data-built="{built_stamp}">
 <header class="top"><div class="top-in">
-  <div class="brand"><div class="logo">M</div><div><h1>Millennium Dashboard</h1><p>Research monitor &middot; private, stays on this PC</p></div></div>
+  <div class="brand"><div class="logo" aria-label="Millennium Dashboard logo"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="34" height="34"> <defs> <linearGradient id="mlg-head" x1="0" y1="0" x2="1" y2="1"> <stop offset="0" stop-color="#4f46e5"/> <stop offset="1" stop-color="#a855f7"/> </linearGradient> </defs> <rect x="0" y="0" width="64" height="64" rx="18" fill="url(#mlg-head)"/> <line x1="11" y1="32" x2="53" y2="32" stroke="#ffffff" stroke-opacity="0.32" stroke-width="2.6" stroke-linecap="round"/> <path d="M13 32 C 19 13, 27 13, 32 32 S 45 51, 51 32" fill="none" stroke="#ffffff" stroke-width="5.2" stroke-linecap="round"/> <circle cx="32" cy="32" r="5" fill="#fde047"/> </svg></div><div><h1>Millennium Dashboard</h1><p>Research monitor &middot; private, stays on this PC</p></div></div>
   <div class="top-meta">{task_chip}{status_html}{version_chip}<span>Next run {html.escape(next_text)}</span>
     <a href="{PUBLIC_PAGE}">Public page</a><a href="{REPO}">Code</a><a class="btn ghost" href="millennium://refresh">Refresh</a></div>
 </div></header>
@@ -658,7 +659,9 @@ footer {{ max-width:1180px; margin:0 auto; padding:0 24px 30px; color:var(--mute
 </body></html>
 """
     OUT.parent.mkdir(exist_ok=True)
-    OUT.write_text(page, encoding="utf-8")
+    temp_out = OUT.with_suffix(".tmp")
+    temp_out.write_text(page, encoding="utf-8")
+    temp_out.replace(OUT)  # atomic: the window never sees a half-written file
     print(f"wrote {OUT}: {len(rows)} contacts, {len(history)} digests, {len(actions)} action(s)")
 
 

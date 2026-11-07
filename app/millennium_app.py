@@ -22,6 +22,8 @@ import re  # noqa: F401
 import shutil  # noqa: F401
 import subprocess  # noqa: F401
 import sys
+import threading
+import time
 import traceback
 import urllib.parse
 import urllib.request  # noqa: F401
@@ -63,22 +65,30 @@ def load_modules():
 
 
 class Api:
+    """Buttons from the page. Work always runs on a background thread so the window never stops
+    responding (Windows closes 'not responding' windows, which looked like a crash)."""
+
     def __init__(self):
-        self.window = None
+        self._window = None  # underscore: pywebview must not walk the window object (it recursed forever and froze the app)
 
     def rebuild_and_show(self):
         modules = load_modules()
         modules["dashboard"].build()
-        self.window.load_url(modules["dashboard"].OUT.resolve().as_uri())
+        # a new ?t= value makes WebView2 really reload; the same URL is ignored
+        url = modules["dashboard"].OUT.resolve().as_uri() + f"?t={int(time.time())}"
+        self._window.load_url(url)
 
     def handle(self, href):
+        threading.Thread(target=self._handle, args=(href,), daemon=True).start()
+
+    def _handle(self, href):
         try:
             parsed = urllib.parse.urlparse(href)
             scheme = parsed.scheme.lower()
             if scheme == "millennium":
                 action = parsed.netloc.lower()
                 argument = urllib.parse.unquote(parsed.path.strip("/"))
-                modules = load_modules()
+                modules = load_modules() if action != "poll" else _cached_modules()
                 if action != "seen":
                     argument = argument.lower()
                 # all button logic lives in action.handle(), read from the folder: new buttons need no rebuild
@@ -91,7 +101,22 @@ class Api:
                 if Path(local).exists():
                     os.startfile(local)
         except Exception:
-            ctypes.windll.user32.MessageBoxW(None, traceback.format_exc()[-900:], "Millennium Dashboard", 0x10)
+            _log_error(traceback.format_exc())
+
+
+_MODULES = {}
+
+
+def _cached_modules():
+    """Polls run every 10 s: reuse the loaded modules instead of re-importing everything each time."""
+    if not _MODULES:
+        _MODULES.update(load_modules())
+    return _MODULES
+
+
+def _log_error(text):
+    with (AUTOMATION / "app_errors.log").open("a", encoding="utf-8") as handle:
+        handle.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')}\n{text}\n")
 
 
 def on_loaded(window):
@@ -99,6 +124,7 @@ def on_loaded(window):
 
 
 def main():
+    sys.excepthook = lambda *info: _log_error("".join(traceback.format_exception(*info)))
     modules = load_modules()
     modules["dashboard"].build()
     api = Api()
@@ -112,7 +138,7 @@ def main():
         background_color="#f6f7f9",
         text_select=True,
     )
-    api.window = window
+    api._window = window
     window.events.loaded += lambda: on_loaded(window)
     webview.start(private_mode=False, storage_path=str(AUTOMATION / "app" / "webview_data"))
 
