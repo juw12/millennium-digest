@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Numerical experiments on BSD and RH statistics - Juwen Lie</title>
+<style>
+body{font-family:system-ui,Segoe UI,Arial,sans-serif;max-width:860px;margin:2rem auto;padding:0 1rem;line-height:1.55;color:#222}
+table{border-collapse:collapse;margin:1rem 0;font-size:.95rem}
+th,td{border:1px solid #ccc;padding:.35rem .6rem;text-align:left}
+th{background:#f3f3f3}
+.warn{background:#fff4e5;border-left:4px solid #e69500;padding:.7rem 1rem}
+small{color:#666}
+</style></head><body>
+<h1>Numerical experiments on elliptic-curve murmurations and zeta-zero statistics</h1>
+<p>Juwen Lie (engineer, not a professional mathematician), working with an AI assistant. Last updated 2026-11-07.</p>
+<div class="warn"><b>These are numerical observations, not proofs.</b> Nothing on this page proves or disproves the
+Birch and Swinnerton-Dyer conjecture or the Riemann Hypothesis. Confidence intervals are bootstrap intervals;
+results marked exploratory or post-hoc were not pre-registered. Corrections are welcome.</div>
+
+<h2>1. BSD side: an a<sub>2</sub>-weighted murmuration at odd squarefree level</h2>
+<p>For odd squarefree conductor N and primes P with 0 &lt; P/N &le; 0.25 we compared the average of
+&epsilon;&middot;a<sub>2</sub>&middot;a<sub>P</sub> over elliptic curves (&epsilon; = root number) with the same average
+over all weight-2 newforms of level N. The newform side was computed exactly with the Eichler&ndash;Selberg trace formula
+for tr(T<sub>2P</sub> W<sub>N</sub>) (a classical theorem; our implementation matched the elliptic-curve sums at all
+180/180 small-level checks). The table gives the elliptic-curve average divided by the newform average
+(1 = same scale).</p>
+<table><tr><th>N range</th><th>curves</th><th>&epsilon;&middot;a<sub>2</sub>&middot;a<sub>P</sub> ratio</th>
+<th>plain &epsilon;&middot;a<sub>P</sub> ratio</th><th>difference</th></tr>
+<tr><td>2000&ndash;3999 (discovery)</td><td>1005</td><td>0.96 [0.84, 1.08]</td><td>0.67 [0.55, 0.79]</td><td>[0.13, 0.46]</td></tr>
+<tr><td>4000&ndash;7999 (pre-registered replication)</td><td>1973</td><td>1.007 [0.91, 1.10]</td><td>0.495 [0.40, 0.59]</td><td>[0.37, 0.64]</td></tr></table>
+<p><b>Observation:</b> weighting by a<sub>2</sub> brings the elliptic-curve murmuration to the newform scale (ratio
+&asymp; 1), while the plain murmuration stays well below it. All three pre-registered criteria passed in the
+replication range. <b>Novelty:</b> this looks like a 2-adic local effect and is plausibly explained by the local-factor
+heuristics of Sawin and Sutherland (<a href="https://arxiv.org/abs/2504.12295">arXiv:2504.12295</a>, &sect;1.5).
+We do not claim it as new. A direct test of their prime-conductor prediction with 419 curves was underpowered
+(ratio 0.62 [0.42, 0.84], shape correlation 0.84): not established either way.</p>
+
+<h2>2. RH side: finite-height corrections to GUE spacing statistics</h2>
+<p>Using ~300,000 consecutive zeros per height from the LMFDB (Platt's database), we measured how far the
+nearest-neighbour spacing distribution is from the GUE limit and compared it with the first-order correction of
+Bogomolny, Bohigas, Leboeuf and Monastra (BBLM), which predicts an amplitude A = 1 in units of
+1/N<sub>eff</sub><sup>2</sup>.</p>
+<table><tr><th>height t</th><th>N<sub>eff</sub></th><th>A (BBLM = 1)</th><th>95% CI</th></tr>
+<tr><td>1e8</td><td>3.82</td><td>0.65</td><td>[0.60, 0.71]</td></tr>
+<tr><td>2e8</td><td>3.98</td><td>0.67</td><td>[0.61, 0.74]</td></tr>
+<tr><td>5e8</td><td>4.19</td><td>0.69</td><td>[0.62, 0.76]</td></tr>
+<tr><td>1e9</td><td>4.35</td><td>0.70</td><td>[0.62, 0.78]</td></tr>
+<tr><td>2e9</td><td>4.51</td><td>0.72</td><td>[0.64, 0.81]</td></tr>
+<tr><td>5e9</td><td>4.72</td><td>0.73</td><td>[0.63, 0.83]</td></tr>
+<tr><td>1e10</td><td>4.88</td><td>0.71</td><td>[0.60, 0.82]</td></tr>
+<tr><td>2e10</td><td>5.04</td><td>0.77</td><td>[0.64, 0.88]</td></tr>
+<tr><td>3e10</td><td>5.13</td><td>0.76</td><td>[0.64, 0.88]</td></tr></table>
+<p><b>Observation (post-hoc, exploratory):</b> A rises slowly from about 0.65 at t = 10<sup>8</sup> to about 0.77 at
+t = 3&middot;10<sup>10</sup>, still below 1. This is consistent with the BBLM first-order term being asymptotically
+correct with a sizeable higher-order correction. Two simple scaling laws fitted at lower heights were rejected at all
+four of the original LMFDB heights. The LMFDB holds no zeros above about 3&middot;10<sup>10</sup>, so the trend
+cannot be followed further with this data. Higher-order corrections are discussed by Bogomolny et al. and by
+Forrester and Mays; we have not checked whether these numbers are new.</p>
+
+<h2>Methods and data</h2>
+<p>Elliptic-curve data: Cremona's elliptic-curve tables (allcurves files; conductors below 10,000 for these results). Zeros: LMFDB. Bootstrap:
+resampling curves (BSD) and blocks of 500 spacings (RH), 2,000 draws. The code is available on request.</p>
+<p><small>Contact: via the GitHub profile <a href="https://github.com/juw12">juw12</a>.</small></p>
+</body></html>

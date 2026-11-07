@@ -1,4 +1,5 @@
-"""Opens a Gmail draft with the PDF already attached. Nothing is ever sent: you read it and press Send.
+"""Opens a Gmail draft with the PDF already attached; you read it and press Send.
+Exception: send_now() sends follow-ups automatically (user request 2026-11-07, policy auto_send_follow_ups).
 
 How it works (no password or API key is stored):
   * Edge runs with its own small profile in automation\\edge_gmail_profile (gitignored), with a local-only
@@ -234,6 +235,57 @@ def compose(to, subject, body, attachment):
         "Your pinned Gmail app is opening on Drafts: open it, read it once, press Send, "
         "then click 'I sent it' on the dashboard." + note
     )
+
+
+SEND_WAIT_S = 40
+
+
+def send_now(to, subject, body):
+    """FOLLOW-UPS ONLY (the user asked for these to go out without him, 2026-11-07).
+    Opens the same signed-in Edge helper window, checks recipient and subject, presses Gmail's Send
+    and waits for Gmail's "Message sent" note. Returns True only when Gmail confirmed the send."""
+    started_at = time.time()
+    compose_url = outreach.gmail_compose_url(to, subject, body)
+    open_compose_tab(compose_url)
+    wait_for_gmail(started_at, compose_url)
+    time.sleep(1.0)
+    os.environ["NO_PROXY"] = "127.0.0.1,localhost"
+    from playwright.sync_api import sync_playwright
+
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.connect_over_cdp(f"http://127.0.0.1:{DEBUG_PORT}")
+        deadline = time.time() + 30
+        page = None
+        while page is None and time.time() < deadline:
+            compose_pages = [
+                p for c in browser.contexts for p in c.pages
+                if p.url.startswith("https://mail.google.com/") and "view=cm" in p.url
+            ]
+            page = compose_pages[-1] if compose_pages else None
+            time.sleep(0.5)
+        if page is None:
+            raise RuntimeError("Gmail compose page not found")
+        page.wait_for_selector('input[name="subjectbox"]', timeout=60_000)
+        if page.locator('input[name="subjectbox"]').last.input_value() != subject:
+            raise RuntimeError("subject did not match; not sent")
+        if to.lower() not in page.content().lower():
+            raise RuntimeError("recipient not visible in the compose window; not sent")
+        page.locator('div[role="button"][data-tooltip^="Send"]').last.click()
+        sent = False
+        deadline = time.time() + SEND_WAIT_S
+        while time.time() < deadline:
+            if page.is_closed():
+                sent = True  # Gmail closes the standalone compose page after a successful send
+                break
+            note = page.get_by_text(re.compile(r"Message sent"))
+            if note.count():
+                sent = True
+                break
+            time.sleep(0.5)
+        if not page.is_closed():
+            page.close()
+    log(f"send_now to={to} subject={subject!r} confirmed={sent}")
+    return sent
 
 
 def main():

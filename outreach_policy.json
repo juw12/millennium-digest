@@ -10,9 +10,15 @@
   "max_body_words": 420,
   "max_attachment_mb": 5,
   "required_in_body": {
-    "ai_disclosure": ["AI assistant"],
-    "no_obligation_line": ["no reply is needed"],
-    "specific_question": ["?"]
+    "ai_disclosure": [
+      "AI assistant"
+    ],
+    "no_obligation_line": [
+      "no reply is needed"
+    ],
+    "specific_question": [
+      "?"
+    ]
   },
   "require_expert_public_email_source": true,
   "require_personalisation": "body must cite at least one of the expert's own papers listed in experts.json",
@@ -20,5 +26,7 @@
     "pre-registration file exists",
     "all gates passed (gates file has no FAIL)",
     "result is new since the last email on this topic"
-  ]
+  ],
+  "auto_send_follow_ups": true,
+  "_auto_send_note": "2026-11-07 user request: follow-ups (max 1 per person, 21 days without reply) are sent automatically. First-contact emails and answers to replies stay drafts (never_auto_send)."
 }

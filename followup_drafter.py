@@ -129,7 +129,18 @@ def main():
         return
     import gmail_compose  # imported only when needed (opens Edge / Gmail)
 
+    policy = json.loads((Path(__file__).resolve().parent / "outreach_policy.json").read_text(encoding="utf-8"))
+    auto_send = policy.get("auto_send_follow_ups", False)
     for path, to, subject, body, _, _ in due_rows:
+        if auto_send:
+            try:
+                if gmail_compose.send_now(to, subject, body):
+                    state[row_key(path)] = f"sent {today.isoformat()}"
+                    STATE_FILE.write_text(json.dumps(state, indent=2), encoding="utf-8")
+                    gmail_compose.log(f"follow-up SENT automatically to {to}")
+                    continue
+            except Exception as error:  # fall back to a draft below
+                gmail_compose.log(f"auto-send to {to} failed: {error}")
         try:
             result = gmail_compose.compose(to, subject, body, None)
         except Exception as error:  # tell the user rather than fail silently
@@ -137,7 +148,7 @@ def main():
             continue
         state[row_key(path)] = today.isoformat()
         STATE_FILE.write_text(json.dumps(state, indent=2), encoding="utf-8")
-        gmail_compose.message(f"Follow-up to {to} is ready (21 days without reply).\n\n{result}")
+        gmail_compose.message(f"Follow-up to {to} could not be sent automatically, so it is a draft.\n\n{result}")
 
 
 if __name__ == "__main__":
