@@ -241,7 +241,7 @@ SEND_WAIT_S = 40
 
 
 def send_now(to, subject, body):
-    """FOLLOW-UPS ONLY (the user asked for these to go out without him, 2026-11-07).
+    """Sends without the user: follow-ups, updates/replies and first contacts (user approvals 2026-11-07).
     Opens the same signed-in Edge helper window, checks recipient and subject, presses Gmail's Send
     and waits for Gmail's "Message sent" note. Returns True only when Gmail confirmed the send."""
     started_at = time.time()

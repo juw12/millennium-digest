@@ -1,6 +1,6 @@
 {
   "_purpose": "Rules that keep expert outreach from being spam. outreach.py refuses to draft anything that breaks a rule.",
-  "never_auto_send": true,
+  "never_auto_send": false,
   "one_recipient_per_email": true,
   "max_new_drafts_per_30_days": 2,
   "min_days_between_contacts_same_person": 180,
@@ -28,7 +28,8 @@
     "result is new since the last email on this topic"
   ],
   "auto_send_follow_ups": true,
-  "_auto_send_note": "2026-11-07 user request: follow-ups (max 1 per person, 21 days without reply) are sent automatically. First-contact emails and answers to replies stay drafts (never_auto_send).",
+  "_auto_send_note": "2026-11-07 user: follow-ups, updates/replies AND first contacts are sent automatically ('auto first contact too'). Every send must still pass check_rules: max 2 new people per 30 days, 180 days between contacts, 1 unanswered email per person, word limit, AI disclosure, personalisation, evidence gates. Auto-sent first contacts link the public results page instead of attaching a PDF.",
   "ai_session_sends_updates_and_replies": true,
-  "_ai_send_note": "2026-11-07 user: 'u do all urself'. Updates and answers to experts who are already in contact are written AND sent by the AI session (same rules: word limit, AI disclosure, no-obligation line, question). Unattended scripts never send generated answers; gmail_inbox.py queues a needs_ai job instead. First contact with a new person still needs the user's yes."
+  "_ai_send_note": "2026-11-07 user: 'u do all urself'. Updates and answers to experts who are already in contact are written AND sent by the AI session (same rules: word limit, AI disclosure, no-obligation line, question). Unattended scripts never send generated answers; gmail_inbox.py queues a needs_ai job instead. First contact with a new person still needs the user's yes.",
+  "auto_send_first_contact": true
 }

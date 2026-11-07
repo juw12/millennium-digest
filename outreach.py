@@ -22,6 +22,7 @@ HERE = Path(__file__).resolve().parent
 POLICY = json.loads((HERE / "outreach_policy.json").read_text(encoding="utf-8"))
 EXPERTS = json.loads((HERE / "experts.json").read_text(encoding="utf-8"))
 LEDGER_FILE = HERE / "contacts_log.json"
+RESULTS_URL = "https://juw12.github.io/millennium-digest/results.html"
 NO_OBLIGATION_LINE = (
     "If this isn't something you have time for, no reply is needed, and I won't write again "
     "on this unless I have something genuinely new."
@@ -139,6 +140,11 @@ def propose(spec_path):
     spec = json.loads(Path(spec_path).read_text(encoding="utf-8"))
     if NO_OBLIGATION_LINE.lower() not in spec["body"].lower():
         spec["body"] = spec["body"].replace("Thank you for your time.", NO_OBLIGATION_LINE + "\n\nThank you for your time.")
+    auto_send = POLICY.get("auto_send_first_contact", False)
+    if auto_send and spec.get("attachment") and RESULTS_URL not in spec["body"]:
+        # Auto-sent first contacts carry a link to the public results page instead of a PDF attachment.
+        spec["body"] = spec["body"].replace(
+            NO_OBLIGATION_LINE, f"The results and plots are here: {RESULTS_URL}\n\n" + NO_OBLIGATION_LINE, 1)
     ledger = load_ledger()
     problems = check_rules(spec, ledger)
     if problems:
@@ -146,8 +152,7 @@ def propose(spec_path):
         for problem in problems:
             print("  -", problem)
         return 1
-    compose_url = save_draft(spec["to"], spec["subject"], spec["body"], spec.get("attachment"))
-    ledger["contacts"].append({
+    entry = {
         "to": spec["to"].lower(),
         "name": EXPERTS[spec["to"].lower()]["name"],
         "topic": spec.get("topic"),
@@ -155,8 +160,19 @@ def propose(spec_path):
         "date": TODAY.isoformat(),
         "state": "drafted",
         "report_hash": file_hash(spec["attachment"]) if spec.get("attachment") else None,
-        "compose_url": compose_url,
-    })
+    }
+    if auto_send:
+        import gmail_compose  # user approval 2026-11-07: first contacts are sent automatically (all rules above still apply)
+        if gmail_compose.send_now(spec["to"], spec["subject"], spec["body"]):
+            entry["state"] = "sent"
+            entry["sent_date"] = TODAY.isoformat()
+            ledger["contacts"].append(entry)
+            save_ledger(ledger)
+            print(f"SENT from {GMAIL_ACCOUNT} to {spec['to']} (Gmail confirmed).")
+            return 0
+        print("Automatic send was not confirmed by Gmail; saving it as a draft instead.")
+    entry["compose_url"] = save_draft(spec["to"], spec["subject"], spec["body"], spec.get("attachment"))
+    ledger["contacts"].append(entry)
     save_ledger(ledger)
     print(f"Gmail draft opened for {spec['to']}. Drag in the highlighted PDF, review, and press Send yourself.")
     return 0
