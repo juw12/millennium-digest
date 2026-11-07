@@ -497,7 +497,7 @@ def build():
     nav_html = ui.section_nav([
         ("needs", "Needs you", len(actions) or ""),
         ("progress", "Problems", ""),
-        ("papers", "Papers", paper_total or ""),
+        ("papers", "Papers", ""),  # red badges are only for things that need you
         ("outreach", "Outreach", ""),
         ("studies", "Studies", ""),
         ("activity", "Activity", ""),
