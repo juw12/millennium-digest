@@ -180,7 +180,7 @@ CSS = """
   border-bottom:1px solid var(--line); }
 .snav-in { max-width:1180px; margin:0 auto; padding:7px 24px; display:flex; gap:4px; overflow-x:auto; scrollbar-width:none; }
 .snav a { padding:5px 11px; border-radius:999px; color:var(--ink2); font-size:12.5px; font-weight:600; white-space:nowrap; }
-.snav a:hover { background:#eef2ff; text-decoration:none; }
+.snav a:hover { background:#f0fdfa; text-decoration:none; }
 .snav a.on { background:var(--accent); color:#fff; }
 .nbadge { display:inline-block; min-width:18px; padding:0 5px; border-radius:99px; background:var(--bad); color:#fff;
   font-size:11px; text-align:center; margin-left:3px; }
@@ -190,14 +190,14 @@ section[id], div[id].anchor { scroll-margin-top:56px; }
 .ftools { display:flex; flex-direction:column; gap:8px; margin-bottom:8px; }
 .fsearch { width:100%; padding:7px 11px; border:1px solid var(--line); border-radius:9px; font:inherit; font-size:13px;
   background:#fff; color:var(--ink); }
-.fsearch:focus { outline:2px solid #c7d2fe; border-color:var(--accent); }
+.fsearch:focus { outline:2px solid #99f6e4; border-color:var(--accent); }
 .fchips { display:flex; flex-wrap:wrap; gap:5px; }
 .fchip { border:1px solid var(--line); background:#fff; color:var(--ink2); border-radius:999px; padding:3px 10px;
   font:inherit; font-size:12px; font-weight:600; cursor:pointer; min-height:28px; }
 .fchip b { color:var(--muted); font-weight:600; margin-left:2px; }
-.fchip:hover { border-color:#c7d2fe; }
+.fchip:hover { border-color:#99f6e4; }
 .fchip.on { background:var(--accent); border-color:var(--accent); color:#fff; }
-.fchip.on b { color:#e0e7ff; }
+.fchip.on b { color:#ccfbf1; }
 .fchip:focus-visible, .snav a:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
 .plist { list-style:none; margin:0; padding:0; max-height:360px; }
 .pitem { padding:8px 2px; border-top:1px solid #f1f5f9; display:flex; flex-direction:column; gap:2px; }

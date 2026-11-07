@@ -30,7 +30,7 @@ def _fmt(value):
     return f"{value:.2f}".rstrip("0").rstrip(".")
 
 
-def hbar_chart(items, color="#4f46e5", targets=None, **_ignored):
+def hbar_chart(items, color="#0f766e", targets=None, **_ignored):
     """Horizontal bars as HTML (text stays readable at every screen size). items: [(label, value)].
     targets: {label: filter value}; bars with a target are clickable (they filter the paper list)."""
     targets = targets or {}

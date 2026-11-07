@@ -199,7 +199,7 @@ def file_link(path, label):
     return f'<a href="{path.resolve().as_uri()}">{html.escape(label)}</a>'
 
 
-ACCENT = "#4f46e5"
+ACCENT = "#0f766e"
 TEAL = "#0d9488"
 AMBER = "#d97706"
 ROSE = "#e11d48"
@@ -516,7 +516,7 @@ def build():
 <style>
 :root {{
   --bg:#f6f7f9; --card:#fff; --ink:#0f172a; --ink2:#334155; --muted:#64748b; --line:#e5e7eb;
-  --accent:{ACCENT}; --accent-soft:#eef2ff; --good:{GREEN}; --bad:{ROSE}; --amber:{AMBER};
+  --accent:{ACCENT}; --accent-soft:#f0fdfa; --good:{GREEN}; --bad:{ROSE}; --amber:{AMBER};
   --radius:14px; --shadow:0 1px 2px rgba(15,23,42,.04), 0 4px 16px rgba(15,23,42,.04);
 }}
 * {{ box-sizing:border-box; }}
@@ -526,7 +526,7 @@ a {{ color:var(--accent); text-decoration:none; }} a:hover {{ text-decoration:un
 .top {{ background:var(--card); border-bottom:1px solid var(--line); position:sticky; top:0; z-index:5; }}
 .top-in {{ max-width:1180px; margin:0 auto; padding:14px 24px; display:flex; align-items:center; gap:16px; flex-wrap:wrap; }}
 .brand {{ display:flex; align-items:center; gap:12px; margin-right:auto; }}
-.logo {{ width:34px; height:34px; display:grid; place-items:center; filter:drop-shadow(0 2px 6px rgba(79,70,229,.35)); }}
+.logo {{ width:34px; height:34px; display:grid; place-items:center; filter:drop-shadow(0 2px 6px rgba(15,118,110,.35)); }}
 .logo svg {{ display:block; }}
 .brand h1 {{ font-size:16px; margin:0; letter-spacing:-.01em; }}
 .brand p {{ margin:0; color:var(--muted); font-size:12px; }}
@@ -564,7 +564,7 @@ h2 {{ font-size:15px; margin:0; letter-spacing:-.01em; }}
 .btn {{ display:inline-flex; align-items:center; padding:6px 12px; border-radius:8px; background:var(--accent); color:#fff;
   font-size:12.5px; font-weight:600; white-space:nowrap; border:1px solid var(--accent); }}
 .btn:hover {{ text-decoration:none; filter:brightness(1.08); }}
-.btn.ghost {{ background:#fff; color:var(--accent); border-color:#c7d2fe; }}
+.btn.ghost {{ background:#fff; color:var(--accent); border-color:#99f6e4; }}
 .chart {{ width:100%; }}
 .legend {{ display:flex; flex-wrap:wrap; gap:6px 16px; margin:6px 0 2px; color:var(--ink2); font-size:12px; }}
 .lg {{ display:inline-flex; align-items:center; gap:6px; }}
@@ -585,7 +585,7 @@ td.num {{ font-variant-numeric:tabular-nums; color:var(--ink2); white-space:nowr
 td.next {{ color:var(--ink2); }} td.who {{ white-space:nowrap; }} td.acts {{ text-align:right; white-space:nowrap; }}
 .tag {{ font-size:11.5px; font-weight:600; color:var(--ink2); background:#f1f5f9; padding:2px 8px; border-radius:6px; }}
 .state {{ font-size:12px; font-weight:600; padding:3px 9px; border-radius:999px; background:#f1f5f9; color:var(--ink2); }}
-.s-draft {{ background:#eef2ff; color:#4338ca; }} .s-sent {{ background:#fffbeb; color:#b45309; }} .s-replied {{ background:#ecfdf3; color:#15803d; }}
+.s-draft {{ background:#f0fdfa; color:#115e59; }} .s-sent {{ background:#fffbeb; color:#b45309; }} .s-replied {{ background:#ecfdf3; color:#15803d; }}
 .note {{ color:var(--muted); font-size:12.5px; margin:12px 0 0; }}
 .empty {{ color:var(--muted); margin:0; }}
 details summary {{ cursor:pointer; font-weight:600; font-size:14px; }}
@@ -618,7 +618,7 @@ footer {{ max-width:1180px; margin:0 auto; padding:0 24px 30px; color:var(--mute
 </style></head>
 <body data-built="{built_stamp}">
 <header class="top"><div class="top-in">
-  <div class="brand"><div class="logo" aria-label="Millennium Dashboard logo"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="34" height="34"> <defs> <linearGradient id="mlg-head" x1="0" y1="0" x2="1" y2="1"> <stop offset="0" stop-color="#4f46e5"/> <stop offset="1" stop-color="#a855f7"/> </linearGradient> </defs> <rect x="0" y="0" width="64" height="64" rx="18" fill="url(#mlg-head)"/> <line x1="11" y1="32" x2="53" y2="32" stroke="#ffffff" stroke-opacity="0.32" stroke-width="2.6" stroke-linecap="round"/> <path d="M13 32 C 19 13, 27 13, 32 32 S 45 51, 51 32" fill="none" stroke="#ffffff" stroke-width="5.2" stroke-linecap="round"/> <circle cx="32" cy="32" r="5" fill="#fde047"/> </svg></div><div><h1>Millennium Dashboard</h1><p>Research monitor &middot; private, stays on this PC</p></div></div>
+  <div class="brand"><div class="logo" aria-label="Millennium Dashboard logo"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="34" height="34"> <defs> <linearGradient id="mlg-head" x1="0" y1="0" x2="1" y2="1"> <stop offset="0" stop-color="#0f766e"/> <stop offset="1" stop-color="#06b6d4"/> </linearGradient> </defs> <rect x="0" y="0" width="64" height="64" rx="18" fill="url(#mlg-head)"/> <line x1="11" y1="32" x2="53" y2="32" stroke="#ffffff" stroke-opacity="0.32" stroke-width="2.6" stroke-linecap="round"/> <path d="M13 32 C 19 13, 27 13, 32 32 S 45 51, 51 32" fill="none" stroke="#ffffff" stroke-width="5.2" stroke-linecap="round"/> <circle cx="32" cy="32" r="5" fill="#fde047"/> </svg></div><div><h1>Millennium Dashboard</h1><p>Research monitor &middot; private, stays on this PC</p></div></div>
   <div class="top-meta">{task_chip}{status_html}{version_chip}<span>Next run {html.escape(next_text)}</span>
     <a href="{PUBLIC_PAGE}">Public page</a><a href="{REPO}">Code</a><a class="btn ghost" href="millennium://refresh">Refresh</a></div>
 </div></header>

@@ -326,7 +326,7 @@ EXTRA_CSS = """
 .steps li.todo-step { color:var(--muted); }
 .next-up { background:var(--accent-soft); border-radius:9px; padding:8px 10px; font-size:12.5px; color:var(--ink2); }
 .next-up span { display:block; font-size:11.5px; font-weight:700; color:var(--accent); text-transform:uppercase; letter-spacing:.04em; }
-.s-sent { background:#fffbeb; color:#b45309; } .s-replied { background:#ecfdf3; color:#15803d; } .s-drafted { background:#eef2ff; color:#4338ca; }
+.s-sent { background:#fffbeb; color:#b45309; } .s-replied { background:#ecfdf3; color:#15803d; } .s-drafted { background:#f0fdfa; color:#115e59; }
 .scroll-y { max-height:420px; overflow-y:auto; }
 .btn { cursor:pointer; min-height:32px; }
 """
