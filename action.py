@@ -315,7 +315,40 @@ def mark_seen(page):
     return True
 
 
+def reload_app_window():
+    """Rebuilds the page and makes the desktop window really reload it.
+    The app's own rebuild_and_show() points the window at the URL it already shows, which WebView2
+    ignores, so new data never appeared. A JavaScript reload always re-reads the file."""
+    import dashboard
+    import webview  # bundled in the desktop app; only called when running inside it
+
+    dashboard.build()
+    windows = list(getattr(webview, "windows", []))
+    _app_log(f"reload_app_window: {len(windows)} window(s)")
+    for window in windows:
+        window.evaluate_js("window.location.reload()")
+    return bool(windows)
+
+
+def _app_log(text):
+    with (HERE / "app_actions.log").open("a", encoding="utf-8") as handle:
+        handle.write(f"{dt.datetime.now():%Y-%m-%d %H:%M:%S}  {text}\n")
+
+
 def handle(action, argument, in_app=False):
+    """Run one button. Returns True when the caller should rebuild the page itself.
+    Inside the desktop app the rebuild + reload happens here (see reload_app_window)."""
+    result = _dispatch(action, argument, in_app)
+    if result and in_app:
+        try:
+            if reload_app_window():
+                return False
+        except Exception as error:
+            _app_log(f"reload_app_window failed: {error!r}")  # fall back to the app's own rebuild
+    return result
+
+
+def _dispatch(action, argument, in_app=False):
     """Run one button. Returns True when the page should be rebuilt."""
     if action == "poll":
         return poll(argument)
