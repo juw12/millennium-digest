@@ -362,6 +362,7 @@ def sync_contact(context, ledger, entry, dry_run=False):
             "for": key, "at": dt.datetime.now().isoformat(timespec="seconds"),
             "question": "?" in message["text"],
         }
+        _queue_ai_answer(name, entry, path)
         history.record("watch", f"{name} replied; your answer was drafted"
                        + (" in the Gmail thread" if saved else f" in {path.name}"))
         events.append(f"  answer drafted ({'hand-written' if not generated else 'generated'}): "
@@ -385,6 +386,27 @@ def sync_contact(context, ledger, entry, dry_run=False):
     if not dry_run:
         entry["seen_messages"] = sorted(seen)
     return events
+
+
+def _queue_ai_answer(name, entry, draft_path):
+    """An expert replied: queue a needs_ai job so the next AI session writes and sends the answer
+    (user's standing approval 2026-11-07). Unattended code never sends generated text itself."""
+    queue_path = HERE.parent / "research_queue.json"
+    try:
+        queue = json.loads(queue_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return
+    job_id = f"answer_{entry['to'].split('@')[0]}_{dt.date.today():%Y%m%d}"
+    if any(job.get("id") == job_id for job in queue.get("jobs", [])):
+        return
+    queue.setdefault("jobs", []).append({
+        "id": job_id,
+        "title": f"Answer {name} (they replied) - AI session writes AND sends it",
+        "project": "outreach",
+        "status": "needs_ai",
+        "why": f"Reply saved; starting draft at {draft_path}. Send from the Gmail thread after the policy checks.",
+    })
+    queue_path.write_text(json.dumps(queue, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
 
 def check(dry_run=False):

@@ -259,7 +259,8 @@ def send_now(to, subject, body):
         while page is None and time.time() < deadline:
             compose_pages = [
                 p for c in browser.contexts for p in c.pages
-                if p.url.startswith("https://mail.google.com/") and "view=cm" in p.url
+                if p.url.startswith("https://mail.google.com/")
+                and ("view=cm" in p.url or "fs=1" in p.url)  # Gmail rewrites view=cm to fs=1 after load
             ]
             page = compose_pages[-1] if compose_pages else None
             time.sleep(0.5)

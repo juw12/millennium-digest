@@ -28,5 +28,7 @@
     "result is new since the last email on this topic"
   ],
   "auto_send_follow_ups": true,
-  "_auto_send_note": "2026-11-07 user request: follow-ups (max 1 per person, 21 days without reply) are sent automatically. First-contact emails and answers to replies stay drafts (never_auto_send)."
+  "_auto_send_note": "2026-11-07 user request: follow-ups (max 1 per person, 21 days without reply) are sent automatically. First-contact emails and answers to replies stay drafts (never_auto_send).",
+  "ai_session_sends_updates_and_replies": true,
+  "_ai_send_note": "2026-11-07 user: 'u do all urself'. Updates and answers to experts who are already in contact are written AND sent by the AI session (same rules: word limit, AI disclosure, no-obligation line, question). Unattended scripts never send generated answers; gmail_inbox.py queues a needs_ai job instead. First contact with a new person still needs the user's yes."
 }
