@@ -103,9 +103,11 @@ def ui_test():
     """Click every control on the dashboard and public pages (tests/test_dashboard_ui.py)."""
     code, tail = run([PYTHON, "tests/test_dashboard_ui.py", "--no-build"])
     log(f"ui test: exit {code}  {tail}")
-    if code != 0:
-        with open(HERE / "app_errors.log", "a", encoding="utf-8") as errors:
-            errors.write(f"weekly ui test FAILED: {tail}\n")
+    # Always write a line, so app_errors.log exists and shows the latest result even when all is well.
+    status = "OK" if code == 0 else "FAILED"
+    stamp = dt.datetime.now().strftime("%Y-%m-%d %H:%M")
+    with open(HERE / "app_errors.log", "a", encoding="utf-8") as errors:
+        errors.write(f"{stamp} weekly ui test {status}: {tail}\n")
 
 
 def main():
