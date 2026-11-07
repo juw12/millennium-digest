@@ -1,11 +1,13 @@
 """Prepares follow-up emails as Gmail DRAFTS when they become due. It never sends anything.
 
-Runs daily (Windows task "Millennium follow-up drafts"). For every outbox file named *_followup.txt:
+Runs daily, indefinitely (Windows task "Millennium follow-up drafts"). For every outbox file named *_followup.txt:
   * the header lines give To: and Subject:; the body follows the first blank line after the header;
   * it becomes due 21 days after the original email to that address was sent (contacts_log.json, sent_date);
   * if that person has already replied (ledger state replied/answered), it is skipped: answer them instead;
   * when due, gmail_compose.compose() saves it as a Gmail draft and opens your Gmail Drafts. You read it and
     press Send yourself.
+Automatic follow-ups (no file needed): any contact whose email was SENT, who has not replied after 21 days and has
+no hand-written *_followup.txt, gets ONE short polite follow-up draft (subject "Re: <original>"). Never a second one.
 State (which follow-ups were drafted) is kept next to the outbox files, outside the public repo.
 
   python followup_drafter.py            normal daily run
@@ -22,6 +24,14 @@ STATE_FILE = OUTBOX / "followups_state.json"
 LEDGER_FILE = HERE / "contacts_log.json"
 WAIT_DAYS = 21
 HEADER_KEYS = ("To:", "Subject:", "Thread:", "Status:")
+AUTO_TEMPLATE = (
+    "{greeting}\n\n"
+    "I hope you don't mind a short follow-up to my email of {sent} (\"{subject}\").\n\n"
+    "If you have a moment, even a one-line pointer (for example to a paper where this is already known) would help "
+    "me a lot. If not, no reply is needed, and I won't write again on this.\n\n"
+    "Thank you for your time.\n\n"
+    "Best regards,\nJuwen Lie\n"
+)
 
 
 def parse_followup(path):
@@ -45,6 +55,44 @@ def original_entry(address):
     return entries[-1] if entries else None
 
 
+def greeting_for(entry):
+    """Re-uses the 'Dear ...,' line of the original email; falls back to a neutral greeting."""
+    body_file = entry.get("body_file")
+    if body_file and Path(body_file).exists():
+        for line in Path(body_file).read_text(encoding="utf-8").splitlines():
+            if line.strip().startswith("Dear "):
+                return line.strip()
+    return f"Dear {entry.get('name', 'Professor')},"
+
+
+def auto_followups(today, state, handwritten_addresses):
+    ledger = json.loads(LEDGER_FILE.read_text(encoding="utf-8"))
+    rows = []
+    latest = {}
+    for entry in ledger.get("contacts", []):
+        latest[entry.get("to", "").lower()] = entry
+    for address, entry in sorted(latest.items()):
+        if entry.get("state") != "sent" or not entry.get("sent_date") or address in handwritten_addresses:
+            continue
+        key = f"auto:{address}"
+        due = dt.date.fromisoformat(entry["sent_date"]) + dt.timedelta(days=WAIT_DAYS)
+        subject = entry.get("subject", "")
+        body = AUTO_TEMPLATE.format(greeting=greeting_for(entry), sent=entry["sent_date"], subject=subject)
+        if key in state:
+            action = f"done: drafted {state[key]}"
+        elif today < due:
+            action = f"wait until {due.isoformat()}"
+        else:
+            action = "draft now"
+        reply_subject = subject if subject.lower().startswith("re:") else f"Re: {subject}"
+        rows.append((key, address, reply_subject, body, action, due))
+    return rows
+
+
+def row_key(path):
+    return path if isinstance(path, str) else path.name
+
+
 def plan(today):
     state = json.loads(STATE_FILE.read_text(encoding="utf-8")) if STATE_FILE.exists() else {}
     rows = []
@@ -64,6 +112,8 @@ def plan(today):
         else:
             action = "draft now"
         rows.append((path, to, subject, body, action, due))
+    handwritten = {r[1] for r in rows}
+    rows.extend(auto_followups(today, state, handwritten))
     return state, rows
 
 
@@ -72,7 +122,7 @@ def main():
     state, rows = plan(today)
     if "--status" in sys.argv:
         for path, to, _, _, action, _ in rows:
-            print(f"{path.name:40s} {to:40s} {action}")
+            print(f"{row_key(path):45s} {to:40s} {action}")
         return
     due_rows = [r for r in rows if r[4] == "draft now"]
     if not due_rows:
@@ -85,7 +135,7 @@ def main():
         except Exception as error:  # tell the user rather than fail silently
             gmail_compose.message(f"Follow-up draft for {to} could not be prepared:\n{error}", gmail_compose.MB_ICONWARN)
             continue
-        state[path.name] = today.isoformat()
+        state[row_key(path)] = today.isoformat()
         STATE_FILE.write_text(json.dumps(state, indent=2), encoding="utf-8")
         gmail_compose.message(f"Follow-up to {to} is ready (21 days without reply).\n\n{result}")
 
