@@ -270,6 +270,21 @@ def check_details(page, label):
         summary.click()
 
 
+def check_local_links(page, label, page_path):
+    """Every link to a file on this PC (file:/// or relative) must point at a file that exists."""
+    import urllib.parse
+
+    hrefs = page.eval_on_selector_all("a[href]", "els => els.map(a => a.getAttribute('href'))")
+    for href in sorted(set(hrefs)):
+        if not href or href.startswith(("#", "http", "millennium:", "mailto:")):
+            continue
+        if href.startswith("file:"):
+            target = Path(urllib.parse.unquote(urllib.parse.urlparse(href).path).lstrip("/"))
+        else:
+            target = (page_path.parent / urllib.parse.unquote(href.split("#")[0])).resolve()
+        check(target.exists(), f"{label} link to a local file opens", f"missing: {target}")
+
+
 def check_hidden_really_hidden(page, label):
     leaks = page.eval_on_selector_all(
         "[hidden]",
@@ -326,6 +341,7 @@ def test_page(browser, path, app_mode):
             lambda: check_nav(page, tag, height),
             lambda: check_app_links(page, tag) if app_mode else None,
             lambda: check_hidden_really_hidden(page, tag),
+            lambda: check_local_links(page, tag, path),
             lambda: check_layout(page, tag + " after clicks", width),
         ]
         for step in steps:
