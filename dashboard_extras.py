@@ -104,9 +104,9 @@ def needs_you(rows, ledger, policy, latest_digest):
                                ]))
         elif row["ready"]:
             items.append(_item("mail", f"{row['name']}: draft ready",
-                               "Opens in Gmail with the PDF attached; read it and press Send.", [
+                               "Opens in Gmail with the PDF attached; read it and press Send. "
+                               "Sending is noticed automatically.", [
                 button("Open draft + PDF", f"millennium://open/{encoded}"),
-                button("I sent it", f"millennium://sent/{encoded}", ghost=True),
             ]))
         elif row["state"] == "replied" and not contact.get("answer_sent_date"):
             reply_draft = contact.get("reply_draft") or {}
@@ -121,29 +121,27 @@ def needs_you(rows, ledger, policy, latest_digest):
                 buttons = [button("Open in Gmail", f"millennium://reply/{encoded}")]
                 if incoming and Path(incoming).exists():
                     buttons.append(button("Their reply", Path(incoming).resolve().as_uri(), ghost=True))
-                buttons.append(button("I sent it", f"millennium://answered/{encoded}", ghost=True))
                 items.append(_item("mail", f"{row['name']} replied: your answer is drafted", detail, buttons))
                 continue
             draft = find_reply_draft(row["address"])
             if draft:
                 items.append(_item("mail", f"{row['name']} replied: send your thank-you",
-                                   "Your answer is drafted. It opens in Gmail filled in; read it and press Send.", [
+                                   "Your answer is drafted. It opens in Gmail filled in; read it and press Send. "
+                                   "Sending is noticed automatically.", [
                                        button("Open reply", f"millennium://reply/{encoded}"),
-                                       button("I sent it", f"millennium://answered/{encoded}", ghost=True),
                                    ]))
             else:
-                items.append(_item("mail", f"{row['name']} replied", "Read the reply in Gmail and answer when ready.", [
-                    button("Open Gmail", f"https://mail.google.com/mail/u/0/#search/from%3A{encoded}"),
-                    button("Done", f"millennium://answered/{encoded}", ghost=True),
+                items.append(_item("mail", f"{row['name']} replied",
+                                   "Read the reply in Gmail and answer when ready; your answer is noticed automatically.", [
+                    button("Open in Gmail", f"millennium://thread/{encoded}"),
                 ]))
         elif row["state"] == "sent" and contact.get("sent_date"):
             due_days = policy.get("follow_up_after_days_without_reply", 21)
             waited = (today - dt.date.fromisoformat(contact["sent_date"])).days
             if waited >= due_days:
                 items.append(_item("mail", f"{row['name']}: no reply for {waited} days",
-                                   "One polite follow-up is allowed.", [
-                                       button("Check Gmail", f"https://mail.google.com/mail/u/0/#search/from%3A{encoded}"),
-                                       button("They replied", f"millennium://replied/{encoded}", ghost=True),
+                                   "One polite follow-up is allowed. A reply from them is noticed automatically.", [
+                                       button("Open in Gmail", f"millennium://thread/{encoded}"),
                                    ]))
     if not items:
         return (f'<p class="empty">Nothing needs you right now. {html.escape(_gmail_check_line())} '

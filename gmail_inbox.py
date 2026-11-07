@@ -444,6 +444,25 @@ def _tell(events):
 
 def main():
     dry_run = "--dry-run" in sys.argv
+    if "--soon" in sys.argv:
+        return check_soon()
+    return run_once(dry_run)
+
+
+SOON_DELAYS_S = (300, 600, 900)  # checks at +5, +15 and +30 min after you open a draft
+
+
+def check_soon():
+    """After a dashboard button opened a draft: look again a few times so 'sent' shows up within
+    minutes instead of at the next 2-hourly check. Stops as soon as Gmail shows something new."""
+    for delay in SOON_DELAYS_S:
+        time.sleep(delay)
+        if run_once(False) == 0 and load_state().get("events"):
+            return 0
+    return 0
+
+
+def run_once(dry_run):
     try:
         events = check(dry_run=dry_run)
     except Exception as error:

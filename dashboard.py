@@ -202,10 +202,8 @@ SLATE = "#94a3b8"
 
 def draft_buttons(address):
     encoded = quote(address)
-    return (
-        f'<a class="btn" href="millennium://open/{encoded}">Open draft + PDF</a>'
-        f'<a class="btn ghost" href="millennium://sent/{encoded}">I sent it</a>'
-    )
+    # No "I sent it": gmail_inbox.py sees the sent email in Gmail and updates the ledger itself.
+    return f'<a class="btn" href="millennium://open/{encoded}">Open draft + PDF</a>'
 
 
 def render_action(action):

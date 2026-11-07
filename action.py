@@ -2,11 +2,12 @@
 
   millennium://open/<address>   open the logged draft in your pinned Gmail app (gmail_app.py), filled
                                 in, with its PDF pasted in; you read it and press Send yourself
-  millennium://sent/<address>   after you sent it: mark it as sent in the ledger (asks first)
   millennium://reply/<address>  open your drafted answer to someone who replied (outbox/*reply*.txt)
-  millennium://answered/<addr>  after you sent that answer: record it (asks first)
-  millennium://replied/<addr>   they replied: mark it in the ledger (asks first)
   millennium://refresh          rebuild the page
+
+Sent / replied / answered are detected in Gmail by gmail_inbox.py (every 2 h, plus +5/+15/+30 min
+after open/reply/thread), so the dashboard no longer shows "I sent it" or "They replied" buttons.
+The old links (sent/, answered/, replied/) still work as a manual fallback.
 
 handle() is used by both the desktop app (in-process) and the millennium:// link handler for a browser
 (registered for the current Windows user by register_buttons.ps1). Every press is written to the
@@ -227,6 +228,16 @@ def check_gmail_now():
     return False
 
 
+def check_gmail_soon():
+    """After a button opened something to send: Gmail is checked again at +5, +15 and +30 minutes,
+    so the ledger shows 'sent' without an 'I sent it' click."""
+    helper = python_for_helpers()
+    if helper is None:
+        return
+    subprocess.Popen([str(helper), str(HERE / "gmail_inbox.py"), "--soon"], cwd=HERE,
+                     creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+
+
 def mark_answered(address):
     ledger = outreach.load_ledger()
     entry = latest_entry(ledger, address)
@@ -275,13 +286,18 @@ def handle(action, argument, in_app=False):
     if action == "open":
         history.record("button", f"You opened the draft to {argument}")
         open_draft(argument)
+        check_gmail_soon()
         return False
     if action == "sent":
         return mark_sent(argument, rebuild=not in_app) and in_app
     if action == "reply":
-        return open_reply(argument)
+        result = open_reply(argument)
+        check_gmail_soon()
+        return result
     if action == "thread":
-        return open_thread(argument)
+        result = open_thread(argument)
+        check_gmail_soon()
+        return result
     if action == "checkmail":
         return check_gmail_now()
     if action == "answered":
