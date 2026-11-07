@@ -70,7 +70,7 @@ def build():
         section_html.append(f"<section><h3>{html.escape(section['title'])}</h3><ul>{items}</ul></section>")
 
     rules = [
-        "Never sends on its own: it opens a draft, you press Send",
+        "Sends automatically, but only emails that pass every rule below (otherwise it stays a draft)",
         "One recipient per email",
         f"At most {policy['max_new_drafts_per_30_days']} new contacts per 30 days",
         f"{policy['min_days_between_contacts_same_person']} days between contacts with the same person",

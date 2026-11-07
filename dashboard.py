@@ -371,6 +371,24 @@ def stat_grid(stats):
     ) + "</div>"
 
 
+def _send_status():
+    """One line for the app: when the next new expert may be contacted (policy: N new per 30 days)."""
+    try:
+        import outreach
+        ledger = outreach.load_ledger()
+        cap = outreach.POLICY["max_new_drafts_per_30_days"]
+        dates = sorted(
+            dt.date.fromisoformat(c["date"]) for c in ledger["contacts"]
+            if not c.get("follow_up") and outreach.days_since(c["date"]) < 30
+        )
+        if len(dates) < cap:
+            return f"New contacts allowed now ({cap - len(dates)} of {cap} left this month)."
+        next_day = dates[len(dates) - cap] + dt.timedelta(days=30)
+        return f"Next new expert can be contacted from {next_day:%d %b %Y}."
+    except Exception:
+        return ""
+
+
 def build():
     policy = read_json(HERE / "outreach_policy.json", {})
     ledger = read_json(HERE / "contacts_log.json", {"contacts": []})
@@ -627,7 +645,7 @@ footer {{ max-width:1180px; margin:0 auto; padding:0 24px 30px; color:var(--mute
   <div class="kpis">{kpi_html}</div>
 
   <section class="card" id="needs"><div class="card-head"><div><h2>Needs you</h2>
-    <p class="sub">Every item has its buttons. Follow-ups are sent automatically; other emails open in Gmail and you press Send.</p></div></div>
+    <p class="sub">Emails are sent automatically when they pass every outreach rule: follow-ups, answers and first contacts. {_send_status()}</p></div></div>
     {todo_html}</section>
 
   {progress_html}

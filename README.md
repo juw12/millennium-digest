@@ -14,7 +14,7 @@ A small personal research tool around the Clay Millennium Prize problems. It has
    ledger of who was contacted and when. Rules include: one recipient per email, at most 2 new contacts
    per 30 days, 180 days between contacts with the same person, at most one follow-up, an AI-assistance
    disclosure, a "no reply is needed" line, a specific question, and a citation of the person's own work.
-   Nothing is sent automatically; you review and press Send yourself.
+   Emails that pass every rule are sent automatically from Gmail (follow-ups, answers to replies and first contacts, at most 2 new people per 30 days); anything that fails a rule, or whose send Gmail does not confirm, stays a draft.
 
 This is a hobby tool by an engineer, not a mathematician. It does not solve or claim progress on any
 Millennium problem.
@@ -52,7 +52,7 @@ follow-up dates, study status and report links, and the result of the last autom
 
 ```
 python outreach.py status                     show the ledger and what is allowed next
-python outreach.py propose <email_spec.json>  check every rule; if all pass, open a Gmail draft
+python outreach.py propose <email_spec.json>  check every rule; if all pass, send it (draft if not confirmed)
 python outreach.py mark <address> <state>     record sent | replied | declined | do-not-contact
 python outreach.py followups                  at most one polite follow-up per person when due
 python outreach.py open <address>             reopen the saved Gmail draft for that person
@@ -120,8 +120,8 @@ that is drafted, sent or replied, it reads the Gmail threads with that address a
 - marks the contact **answered** once your answer is in the thread;
 - drafts the single allowed **follow-up** (21-day rule, `outreach.followups`) inside the thread as well.
 
-When a draft was made, a message box offers to open Gmail Drafts and the dashboard is rebuilt. It never
-sends: you read the draft in Gmail and press Send. Run it by hand with `python gmail_inbox.py`
+When a draft was made, a message box offers to open Gmail Drafts and the dashboard is rebuilt. Answers to
+replies are queued for the next AI session, which writes and sends them; the checker itself never sends generated text. Run it by hand with `python gmail_inbox.py`
 (`--dry-run` reads only, `--quiet` skips the message box). Last result: `gmail_inbox.json`, log:
 `gmail_inbox.log` (both local).
 

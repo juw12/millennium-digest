@@ -95,7 +95,7 @@
 
   <h2 class="section">Outreach rules</h2>
   <p class="sub">From outreach_policy.json. A draft that breaks any rule is refused.</p>
-  <div class="card"><ul><li>Never sends on its own: it opens a draft, you press Send</li>
+  <div class="card"><ul><li>Sends automatically, but only emails that pass every rule below (otherwise it stays a draft)</li>
 <li>One recipient per email</li>
 <li>At most 2 new contacts per 30 days</li>
 <li>180 days between contacts with the same person</li>
@@ -110,7 +110,7 @@ python millennium_monitor.py      # writes and opens digests/digest_&lt;date&gt;
 python outreach.py status         # ledger + what the rules allow next
 python make_site.py               # rebuilds this page from the latest digest</pre>
 </main>
-<footer class="wrap">Page built 2026-11-07 19:42 by the weekly job. Built by Juwen Lie. Paper titles and links come from the arXiv API; all papers belong to their authors.
+<footer class="wrap">Page built 2026-11-07 23:30 by the weekly job. Built by Juwen Lie. Paper titles and links come from the arXiv API; all papers belong to their authors.
 Code: <a href="https://github.com/juw12/millennium-digest">github.com/juw12/millennium-digest</a> (MIT licence).</footer>
 </body>
 </html>

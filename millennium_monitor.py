@@ -161,7 +161,7 @@ def main():
         lines.append(f"- watch step failed: {error}")
 
     lines.append("")
-    lines.append("## Expert outreach (rule-checked; drafts only, you press Send)")
+    lines.append("## Expert outreach (rule-checked; sent automatically when every rule passes)")
     try:
         import outreach
         for change in outreach.sync():
