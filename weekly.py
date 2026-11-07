@@ -99,6 +99,15 @@ def dashboard():
     log(f"dashboard: exit {code}  {tail}")
 
 
+def ui_test():
+    """Click every control on the dashboard and public pages (tests/test_dashboard_ui.py)."""
+    code, tail = run([PYTHON, "tests/test_dashboard_ui.py", "--no-build"])
+    log(f"ui test: exit {code}  {tail}")
+    if code != 0:
+        with open(HERE / "app_errors.log", "a", encoding="utf-8") as errors:
+            errors.write(f"weekly ui test FAILED: {tail}\n")
+
+
 def main():
     log("weekly run started" + (" (test: digest skipped)" if "--skip-digest" in sys.argv else ""))
     if "--skip-digest" not in sys.argv:
@@ -106,6 +115,7 @@ def main():
     step("publish", site_and_publish)
     step("prize watch", prize_watch)
     step("dashboard", dashboard)
+    step("ui test", ui_test)
     log("weekly run finished")
 
 

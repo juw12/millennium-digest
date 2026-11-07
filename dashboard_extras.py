@@ -303,7 +303,7 @@ def history_section(ledger):
 
 
 EXTRA_CSS = """
-.probs { display:grid; grid-template-columns:repeat(auto-fill,minmax(330px,1fr)); gap:14px; }
+.probs { display:grid; grid-template-columns:repeat(auto-fit,minmax(330px,1fr)); gap:14px; }
 .prob { border:1px solid var(--line); border-radius:12px; padding:14px; background:#fcfcfd; display:flex; flex-direction:column; gap:8px; min-width:0; }
 .prob.solved { opacity:.75; }
 .next-up.watch { border-left-color: var(--warn, #b7791f); }

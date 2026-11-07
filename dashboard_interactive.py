@@ -175,6 +175,8 @@ def inputs_changed_since(stamp):
 
 
 CSS = """
+/* Elements hidden by the filters/JS must stay hidden even when a class sets display:flex/grid. */
+[hidden] { display:none !important; }
 .top { position:relative; }
 .snav { position:sticky; top:0; z-index:5; background:rgba(246,247,249,.94); backdrop-filter:blur(6px);
   border-bottom:1px solid var(--line); }
