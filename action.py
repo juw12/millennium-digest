@@ -224,7 +224,7 @@ def check_gmail_now():
                      creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
     history.record("button", "You asked for a Gmail check")
     message("Checking Gmail in the background (about 3 minutes). A message appears if a draft is waiting; "
-            "press F5 afterwards.")
+            "the dashboard updates by itself when the check is done.")
     return False
 
 
@@ -236,6 +236,40 @@ def check_gmail_soon():
         return
     subprocess.Popen([str(helper), str(HERE / "gmail_inbox.py"), "--soon"], cwd=HERE,
                      creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+
+
+CATCH_UP_AFTER_H = 2.5  # the scheduled check runs every 2 h; older than this means the PC slept through it
+
+
+def poll(stamp):
+    """Called by the open dashboard every 10 s (desktop app only). Returns True when the data changed
+    since the page was built, so the app rebuilds and reloads it. Also starts a catch-up Gmail check when
+    the PC slept through the scheduled ones. Never shows a message box: errors just mean 'no change'."""
+    try:
+        import dashboard_interactive
+        import dashboard_extras
+        import gmail_inbox
+
+        built = int(stamp)
+        state = gmail_inbox.load_state()
+        last = dt.datetime.fromisoformat(state["at"]) if state.get("at") else None
+        ui = dashboard_extras.ui_state()
+        started = ui.get("auto_check_started")
+        started_at = dt.datetime.fromisoformat(started) if started else None
+        now = dt.datetime.now()
+        stale = last is None or (now - last).total_seconds() > CATCH_UP_AFTER_H * 3600
+        recently_started = started_at and (now - started_at).total_seconds() < 3600
+        if stale and not recently_started:
+            helper = python_for_helpers()
+            if helper:
+                ui["auto_check_started"] = now.isoformat(timespec="seconds")
+                dashboard_extras.save_ui_state(ui)
+                subprocess.Popen([str(helper), str(HERE / "gmail_inbox.py")], cwd=HERE,
+                                 creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+                history.record("watch", "Gmail check started (the PC missed the scheduled one)")
+        return dashboard_interactive.inputs_changed_since(built)
+    except Exception:
+        return False
 
 
 def mark_answered(address):
@@ -283,6 +317,8 @@ def mark_seen(page):
 
 def handle(action, argument, in_app=False):
     """Run one button. Returns True when the page should be rebuilt."""
+    if action == "poll":
+        return poll(argument)
     if action == "open":
         history.record("button", f"You opened the draft to {argument}")
         open_draft(argument)

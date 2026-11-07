@@ -189,14 +189,20 @@ def _watch_status():
 
 
 def problems_section(ledger, policy):
+    import dashboard_interactive as ui
+
     cards = []
+    kinds = {"active": 0, "watching": 0, "solved": 0}
     for problem in progress.problems(ledger, policy):
         if problem["solved"]:
+            kinds["solved"] += 1
             cards.append(
-                f'<div class="prob solved"><div class="prob-head"><b>{html.escape(problem["name"])}</b>'
+                f'<div class="prob solved" data-kind="solved"><div class="prob-head"><b>{html.escape(problem["name"])}</b>'
                 f'<span class="chip neutral">solved</span></div><p class="muted">{html.escape(problem["solved"])}</p></div>'
             )
             continue
+        kind = "active" if (problem["study"] or problem["emails"] or problem["stage"] > 0) else "watching"
+        kinds[kind] += 1
         papers = (
             f'{problem["papers_latest"]} new this week &middot; {problem["papers_total"]} since tracking started'
             if problem["weeks"] else "No digest yet"
@@ -235,16 +241,23 @@ def problems_section(ledger, policy):
                 f'{html.escape(note["text"])}</div>'
             )
         cards.append(
-            f'<div class="prob"><div class="prob-head"><b>{html.escape(problem["name"])}</b></div>'
+            f'<div class="prob" data-kind="{kind}"><div class="prob-head"><b>{html.escape(problem["name"])}</b></div>'
             f'{_stage_bar(problem["stage"])}<p class="small">{papers}</p>{study_html}'
             f'<div class="prob-mails"><div class="mini-h">Emails</div>{email_html}</div>{next_html}</div>'
         )
+    chips = ui.filter_chips([
+        ("all", "All", len(cards)),
+        ("active", "Our work", kinds["active"]),
+        ("watching", "Watching papers", kinds["watching"]),
+        ("solved", "Solved", kinds["solved"]),
+    ])
     return (
         '<section class="card" id="progress"><div class="card-head"><div><h2>Progress per problem</h2>'
         '<p class="sub">Papers tracked, our studies, every email step and what happens next. '
         'Nothing here claims progress on a proof.</p></div></div>'
         f'{_watch_status()}'
-        f'<div class="probs">{"".join(cards)}</div></section>'
+        f'<div data-fbox="problems"><div class="ftools">{chips}</div>'
+        f'<div class="probs">{"".join(cards)}</div></div></section>'
     )
 
 
@@ -252,22 +265,36 @@ KIND_LABEL = {"email": "Email", "digest": "Digest", "job": "Weekly job", "study"
 
 
 def history_section(ledger):
+    import dashboard_interactive as ui
+
     version_rows = "".join(
         f'<tr><td class="num"><b>{html.escape(v["version"])}</b></td><td class="num">{html.escape(v["date"])}</td>'
         f'<td>{html.escape(v["subject"])}</td><td class="num muted">{html.escape(v["hash"])}</td></tr>'
         for v in history.versions()
     ) or '<tr><td colspan="4" class="muted">git not found</td></tr>'
+    events = history.activity(ledger)
+    mine = sum(1 for e in events if e.get("kind") == "button")
     activity_rows = "".join(
-        f'<tr><td class="num">{html.escape(str(e["at"]).replace("T", " ")[:16])}</td>'
+        f'<tr data-kind="{"you" if e.get("kind") == "button" else "auto"} {html.escape(str(e.get("kind", "")))}" '
+        f'data-text="{html.escape(e["text"].lower())}"><td class="num">{html.escape(str(e["at"]).replace("T", " ")[:16])}</td>'
         f'<td><span class="tag">{html.escape(KIND_LABEL.get(e.get("kind"), e.get("kind", "")))}</span></td>'
         f'<td>{html.escape(e["text"])}</td></tr>'
-        for e in history.activity(ledger)
+        for e in events
     )
+    activity_chips = ui.filter_chips([
+        ("all", "All", len(events)),
+        ("you", "You", mine),
+        ("auto", "Automatic", len(events) - mine),
+    ])
     return (
         '<div class="grid2">'
         '<section class="card" id="activity"><div class="card-head"><div><h2>Activity log</h2>'
         '<p class="sub">Everything done so far, newest first: emails, digests, studies, weekly runs and your button presses</p>'
-        f'</div></div><div class="table-wrap scroll-y"><table><tr><th>When</th><th>What</th><th></th></tr>{activity_rows}</table></div></section>'
+        f'</div></div><div data-fbox="activity" data-limit="8">'
+        f'<div class="ftools"><input type="search" class="fsearch" data-search placeholder="Search the log" aria-label="Search the activity log">{activity_chips}</div>'
+        f'<div class="table-wrap scroll-y"><table><tr><th>When</th><th>What</th><th></th></tr>{activity_rows}</table></div>'
+        '<div class="more-row"><button type="button" class="btn ghost">Show all</button></div>'
+        '<p class="fempty muted small" hidden>Nothing matches.</p></div></section>'
         '<section class="card" id="versions"><div class="card-head"><div><h2>Versions</h2>'
         '<p class="sub">Every published change of this tool (github.com/juw12/millennium-digest)</p></div></div>'
         f'<div class="table-wrap scroll-y"><table><tr><th>Version</th><th>Date</th><th>Change</th><th></th></tr>{version_rows}</table></div></section>'

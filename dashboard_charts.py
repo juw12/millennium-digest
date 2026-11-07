@@ -30,15 +30,22 @@ def _fmt(value):
     return f"{value:.2f}".rstrip("0").rstrip(".")
 
 
-def hbar_chart(items, color="#4f46e5", **_ignored):
-    """Horizontal bars as HTML (text stays readable at every screen size). items: [(label, value)]."""
+def hbar_chart(items, color="#4f46e5", targets=None, **_ignored):
+    """Horizontal bars as HTML (text stays readable at every screen size). items: [(label, value)].
+    targets: {label: filter value}; bars with a target are clickable (they filter the paper list)."""
+    targets = targets or {}
     items = sorted(items, key=lambda item: -item[1])
     peak = max([value for _, value in items] + [1])
     rows = []
     for label, value in items:
         width = 100 * value / peak if value else 0
+        target = targets.get(label) if value else None
+        attrs = (
+            f' data-filter-target="{html.escape(target)}" role="button" tabindex="0" title="Show these papers"'
+            if target else ""
+        )
         rows.append(
-            f'<div class="hb-row"><span class="hb-label">{html.escape(label)}</span>'
+            f'<div class="hb-row"{attrs}><span class="hb-label">{html.escape(label)}</span>'
             f'<span class="hb-track"><span class="hb-bar" style="width:{width:.1f}%;background:{color}"></span></span>'
             f'<span class="hb-value{" zero" if not value else ""}">{value}</span></div>'
         )
@@ -104,10 +111,15 @@ def line_chart(series, x_range, y_range=None, width=560, height=300, x_label="",
             f'<text x="{px(x_value) + 5:.1f}" y="{top + 12}" font-size="11" fill="{MUTED}">{html.escape(label)}</text>'
         )
     for s in series:
-        points = [(px(x), py(y)) for x, y in zip(s["xs"], s["ys"]) if y is not None and math.isfinite(y)]
+        data = [(x, y) for x, y in zip(s["xs"], s["ys"]) if y is not None and math.isfinite(y)]
+        points = [(px(x), py(y)) for x, y in data]
+        name = html.escape(s.get("name", ""))
         if s.get("style") == "dots":
-            for x, y in points:
-                parts.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="4.5" fill="{s["color"]}" stroke="#fff" stroke-width="1.5"/>')
+            for (x, y), (xv, yv) in zip(points, data):
+                parts.append(
+                    f'<circle cx="{x:.1f}" cy="{y:.1f}" r="4.5" fill="{s["color"]}" stroke="#fff" stroke-width="1.5">'
+                    f'<title>{name}: x = {_fmt(xv)}, y = {yv:.3g}</title></circle>'
+                )
             continue
         dash = ' stroke-dasharray="6 5"' if s.get("style") == "dash" else ""
         path = " ".join(f"{'M' if i == 0 else 'L'}{x:.1f},{y:.1f}" for i, (x, y) in enumerate(points))
@@ -115,6 +127,13 @@ def line_chart(series, x_range, y_range=None, width=560, height=300, x_label="",
             f'<path d="{path}" fill="none" stroke="{s["color"]}" stroke-width="{2.4 if not dash else 2}"{dash} '
             f'stroke-linejoin="round" stroke-linecap="round"/>'
         )
+        if not dash:
+            # invisible hover targets: hovering a point shows its value
+            for (x, y), (xv, yv) in zip(points, data):
+                parts.append(
+                    f'<circle class="hit" cx="{x:.1f}" cy="{y:.1f}" r="6"><title>{name}: x = {_fmt(xv)}, '
+                    f'y = {yv:.3g}</title></circle>'
+                )
     parts.append(
         f'<text x="{left + plot_w / 2}" y="{height - 6}" font-size="12" fill="{MUTED}" text-anchor="middle">{html.escape(x_label)}</text>'
         f'<text x="14" y="{top + plot_h / 2}" font-size="12" fill="{MUTED}" text-anchor="middle" '

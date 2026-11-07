@@ -446,7 +446,12 @@ def main():
     dry_run = "--dry-run" in sys.argv
     if "--soon" in sys.argv:
         return check_soon()
-    return run_once(dry_run)
+    result = run_once(dry_run)
+    if not dry_run:
+        import repo_sync
+
+        repo_sync.push_if_ahead()  # commits saved while the network was down go up now
+    return result
 
 
 SOON_DELAYS_S = (300, 600, 900)  # checks at +5, +15 and +30 min after you open a draft

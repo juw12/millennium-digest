@@ -9,18 +9,24 @@ Usage:
 """
 import datetime as dt
 import html
+import importlib
 import json
 import math
 import re
 import subprocess
 import sys
+import time
 import webbrowser
 from urllib.parse import quote
 
 import dashboard_charts as charts
 import dashboard_extras as extras
+import dashboard_interactive
 import history as activity_history
 from pathlib import Path
+
+# The desktop app reloads dashboard.py on every button press; reload the UI helpers with it.
+ui = importlib.reload(dashboard_interactive)
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
@@ -421,10 +427,14 @@ def build():
             "Riemann zeros: spacing statistics (our RH study)": "Riemann zeros (our RH study)",
             "Birch and Swinnerton-Dyer": "Birch & Swinnerton-Dyer",
         }
+        paper_list = ui.parse_digest_papers(Path(latest["html"]).with_suffix(".md"))
+        topics_with_papers = {p["topic"] for p in paper_list}
         papers_svg = charts.hbar_chart(
             [(short.get(name, name), count) for name, count in latest["counts"].items()],
             color=ACCENT,
+            targets={short.get(name, name): ui._slug(name) for name in latest["counts"] if name in topics_with_papers},
         )
+        papers_svg += ui.papers_browser(paper_list, short)
         papers_note = (
             f"{len(history)} weekly digest so far; trends appear from next week. "
             + file_link(latest["html"], "Open full digest")
@@ -483,6 +493,16 @@ def build():
 
     log_html = "".join(f"<div>{html.escape(line)}</div>" for line in last_weekly_lines())
     built = dt.datetime.now().strftime("%a %d %b %Y, %H:%M").replace(" 0", " ")
+    built_stamp = int(time.time())
+    nav_html = ui.section_nav([
+        ("needs", "Needs you", len(actions) or ""),
+        ("progress", "Problems", ""),
+        ("papers", "Papers", paper_total or ""),
+        ("outreach", "Outreach", ""),
+        ("studies", "Studies", ""),
+        ("activity", "Activity", ""),
+    ])
+    status_html = ui.status_chips()
 
     page = f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
@@ -589,40 +609,44 @@ footer {{ max-width:1180px; margin:0 auto; padding:0 24px 30px; color:var(--mute
   .hb-row {{ grid-template-columns:minmax(110px,46%) 1fr 24px; }}
 }}
 {extras.EXTRA_CSS}
+{ui.CSS}
 </style></head>
-<body>
+<body data-built="{built_stamp}">
 <header class="top"><div class="top-in">
   <div class="brand"><div class="logo">M</div><div><h1>Millennium Dashboard</h1><p>Research monitor &middot; private, stays on this PC</p></div></div>
-  <div class="top-meta">{task_chip}{version_chip}<span>Next run {html.escape(next_text)}</span>
+  <div class="top-meta">{task_chip}{status_html}{version_chip}<span>Next run {html.escape(next_text)}</span>
     <a href="{PUBLIC_PAGE}">Public page</a><a href="{REPO}">Code</a><a class="btn ghost" href="millennium://refresh">Refresh</a></div>
 </div></header>
+{nav_html}
 <main>
   <div class="kpis">{kpi_html}</div>
 
-  <section class="card"><div class="card-head"><div><h2>Needs you</h2>
+  <section class="card" id="needs"><div class="card-head"><div><h2>Needs you</h2>
     <p class="sub">Every item has its buttons. Nothing is ever sent for you: emails open in Gmail and you press Send.</p></div></div>
     {todo_html}</section>
 
   {progress_html}
 
   <div class="grid2">
-    <section class="card"><div class="card-head"><div><h2>New papers this week</h2>
-      <p class="sub">arXiv, last 8 days, keyword matches per topic</p></div></div>
+    <section class="card" id="papers"><div class="card-head"><div><h2>New papers this week</h2>
+      <p class="sub">arXiv, last 8 days, keyword matches per topic &middot; click a bar or search to browse</p></div></div>
       <div class="chart">{papers_svg}</div><p class="note">{papers_note}</p></section>
-    <section class="card"><div class="card-head"><div><h2>Outreach pipeline</h2>
+    <section class="card" id="outreach"><div class="card-head"><div><h2>Outreach pipeline</h2>
       <p class="sub">Drafts only &middot; you always press Send</p></div></div>
       <div class="chart">{pipeline_svg}</div>
       <div class="table-wrap"><table><tr><th>Who</th><th>Topic</th><th>State</th><th>Date</th><th>Next step</th><th></th></tr>
       {outreach_rows}</table></div></section>
   </div>
 
-  <div class="grid2">{research_html}</div>
+  <div class="grid2 anchor" id="studies">{research_html}</div>
 
   {history_html}
 
   <section class="card"><details><summary>Weekly job log</summary><div class="log">{log_html}</div></details></section>
 </main>
 <footer>Built {built} &middot; data from local digests, the outreach ledger and study results. Charts are summaries; see the reports for methods and caveats.</footer>
+<div class="live-note" id="live-note">Updated</div>
+<script>{ui.JS}</script>
 </body></html>
 """
     OUT.parent.mkdir(exist_ok=True)
