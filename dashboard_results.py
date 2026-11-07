@@ -73,6 +73,25 @@ def _local_type_rows():
     )
 
 
+def _f10_status_note():
+    """Pre-registered confirmation verdict (f10_matched.json) and the y = 1/16 kink test (kink_test.json)."""
+    matched = _read(BSD_THEORY / "f10_matched.json")
+    kink = _read(BSD_THEORY / "kink_test.json")
+    if not matched:
+        return "Pre-registered confirmation on unseen N 20000-29999 pending."
+    decision = matched["confirmation"]["decision"]
+    verdict = "replicated" if decision["REPLICATED"] else "not replicated by the registered rule"
+    passed = sum(bool(decision[key]) for key in ("H1", "H2", "H3_prime"))
+    text = (f"Pre-registered test on unseen N 20000-29999: {verdict} ({passed} of 3 criteria passed). "
+            "The exact trace formula for all newforms shows the same ordering (F11).")
+    if kink:
+        add2 = kink["classes"]["add2_only"]
+        outcome = "confirmed" if kink["K1"] and kink["K2"] else "not confirmed"
+        text += (f" Predicted kink at p/N = 1/16 for 4 | N {outcome} on unseen curves "
+                 f"(c = {add2['c']:.2f}, 95% CI {add2['ci95'][0]:.2f} to {add2['ci95'][1]:.2f}).")
+    return text
+
+
 def _queue_items():
     """Research queue: computer jobs (run nightly) and tasks that need the next AI session."""
     queue = _read(ROOT / "research_queue.json") or {"jobs": []}
@@ -109,7 +128,7 @@ def results_section():
    <div class="table-wrap"><table><tr><th>conductor type</th><th>curves</th><th>scale</th><th>shape corr</th></tr>
    {_local_type_rows()}</table></div>
    <p class="note">Only curves semistable everywhere and good at 2 have the shallow "odd" shape; odd conductors with
-   additive reduction look like even ones (F10, exploratory, same in three N ranges).</p></div>
+   additive reduction look like even ones (F10, same in three N ranges). {_f10_status_note()}</p></div>
   <div><h3 style="font-size:13.5px;margin:0 0 6px">Research queue</h3>
    <ul class="plain">{_queue_items()}</ul>
    <p class="note">Computer jobs run every night at 02:00. "Needs AI session" items are new code or drafts for the next session.</p></div>

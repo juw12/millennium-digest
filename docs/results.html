@@ -34,6 +34,26 @@ heuristics of Sawin and Sutherland (<a href="https://arxiv.org/abs/2504.12295">a
 We do not claim it as new. A direct test of their prime-conductor prediction with 419 curves was underpowered
 (ratio 0.62 [0.42, 0.84], shape correlation 0.84): not established either way.</p>
 
+<h2>1b. Local type at 2: a pre-registered test on unseen conductors 20,000&ndash;29,999</h2>
+<p>We split curves by how they behave at the prime 2 (supersingular with even or odd N/2-part, additive at 2, etc.)
+and compared their murmuration scales. The hypotheses and pass/fail thresholds were registered in the research log
+<i>before</i> the 20,000&ndash;29,999 data were downloaded (44,141 isogeny classes; 957,560 a<sub>p</sub> values checked
+against Cremona's aplist files with 0 mismatches). One metric was found to be ill-defined before the run and was
+replaced by a documented amendment.</p>
+<table><tr><th>pre-registered test</th><th>ratio [95% CI]</th><th>rule</th><th>result</th></tr>
+<tr><td>H1: additive-odd vs supersingular-even</td><td>0.956 [0.904, 1.003]</td><td>CI contains 1, shape corr &ge; 0.9 (0.983)</td><td>pass</td></tr>
+<tr><td>H2: supersingular-odd vs supersingular-even</td><td>0.408 [0.338, 0.474]</td><td>CI below 1</td><td>pass</td></tr>
+<tr><td>H3&prime;: supersingular-odd vs additive-odd</td><td>0.605 [0.534, 0.674]</td><td>point &le; 0.60</td><td><b>fail</b></td></tr></table>
+<p><b>Verdict: not replicated under the registered rule</b> (H3&prime; missed its threshold by 0.005). We report it as a
+failure rather than adjusting the threshold. A secondary, also pre-registered prediction &mdash; a square-root
+&ldquo;kink&rdquo; at P/N = 1/16 present only for 4 | N &mdash; was confirmed on the unseen data: kink coefficient
+&minus;4.49 [&minus;4.78, &minus;4.21] for the 4 | N class and 0.10 [&minus;0.20, 0.38] for the control class.</p>
+<p><b>Interpretation (exploratory):</b> an exact all-newform average computed from the general Eichler&ndash;Selberg /
+Fricke trace formula (following <a href="https://arxiv.org/abs/1706.02691">arXiv:1706.02691</a>, checked against
+elliptic-curve data at 124 levels, 91 of them non-squarefree) reproduces the same ordering of the classes, and its
+closed form a&radic;y &minus; b&middot;y (+ c&radic;(16y&minus;1) when 4 | N) explains the kink. So most of the effect
+is already in the trace formula; the remaining elliptic-curve-only dip for the supersingular-odd class is unexplained.</p>
+
 <h2>2. RH side: finite-height corrections to GUE spacing statistics</h2>
 <p>Using ~300,000 consecutive zeros per height from the LMFDB (Platt's database), we measured how far the
 nearest-neighbour spacing distribution is from the GUE limit and compared it with the first-order correction of
@@ -57,7 +77,7 @@ cannot be followed further with this data. Higher-order corrections are discusse
 Forrester and Mays; we have not checked whether these numbers are new.</p>
 
 <h2>Methods and data</h2>
-<p>Elliptic-curve data: Cremona's elliptic-curve tables (allcurves files; conductors below 10,000 for these results). Zeros: LMFDB. Bootstrap:
+<p>Elliptic-curve data: Cremona's elliptic-curve tables (allcurves files; conductors below 10,000 for section 1, 20,000&ndash;29,999 for section 1b). Zeros: LMFDB. Bootstrap:
 resampling curves (BSD) and blocks of 500 spacings (RH), 2,000 draws. The code is available on request.</p>
 <p><small>Contact: via the GitHub profile <a href="https://github.com/juw12">juw12</a>.</small></p>
 </body></html>
