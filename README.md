@@ -19,6 +19,22 @@ A small personal research tool around the Clay Millennium Prize problems. It has
 This is a hobby tool by an engineer, not a mathematician. It does not solve or claim progress on any
 Millennium problem.
 
+## Numerical results
+
+Results page: https://juw12.github.io/millennium-digest/results.html (source: `docs/results.html`, last updated 2026-11-07).
+Numerical observations only, not proofs; nothing here proves or disproves BSD or the Riemann Hypothesis.
+
+- **BSD side, a2-weighted murmuration:** at odd squarefree conductor, weighting by a2 brings the
+  elliptic-curve murmuration to the newform scale (ratio 1.007 [0.91, 1.10] in the pre-registered
+  4000-7999 replication; plain murmuration 0.495). Plausibly explained by Sawin-Sutherland local-factor
+  heuristics (arXiv:2504.12295), so not claimed as new.
+- **Local type at 2, pre-registered on unseen conductors 20,000-29,999:** H1 and H2 passed, H3' missed its
+  threshold by 0.005, so the result is reported as *not replicated* rather than moving the threshold. A
+  separate pre-registered square-root kink at P/N = 1/16 for 4 | N was confirmed.
+- **RH side, finite-height GUE corrections:** using ~300,000 LMFDB zeros per height, the BBLM amplitude
+  rises from about 0.65 at t = 1e8 to about 0.77 at t = 3e10, still below the predicted 1 (post-hoc,
+  exploratory).
+
 ## Setup
 
 Needs Python 3.10+ (standard library only) on Windows.
