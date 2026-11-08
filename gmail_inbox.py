@@ -407,6 +407,11 @@ def _queue_ai_answer(name, entry, draft_path):
         "why": f"Reply saved; starting draft at {draft_path}. Send from the Gmail thread after the policy checks.",
     })
     queue_path.write_text(json.dumps(queue, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    try:
+        import ai_bridge  # hand it to the always-on Precedent Agent right away
+        ai_bridge.bridge()
+    except Exception:
+        pass
 
 
 def check(dry_run=False):
