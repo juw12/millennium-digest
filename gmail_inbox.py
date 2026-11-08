@@ -500,6 +500,13 @@ def run_once(dry_run):
     except Exception as error:
         note = str(error)
         log("check failed: " + traceback.format_exc().strip().replace("\n", " / "))
+        if not dry_run and "signed out" in note:
+            try:
+                import notify_juwen
+
+                notify_juwen.gmail_sign_in_needed("2-hourly Gmail check")
+            except Exception as notice_error:  # the notice must never hide the real failure
+                log(f"sign-in notice failed: {notice_error}")
         if not dry_run:
             _save_state(False, note, [])
         print("check failed:", note)

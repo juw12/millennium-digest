@@ -31,6 +31,17 @@ sys.path.insert(0, str(HERE))
 
 import outreach  # noqa: E402
 
+
+def _tell_juwen_sign_in(where):
+    """E-mails Juwen (relay, max once per 12 h) that the Gmail helper needs a sign-in."""
+    try:
+        import notify_juwen
+
+        notify_juwen.gmail_sign_in_needed(where)
+    except Exception as error:  # a notice must never break sending
+        log(f"sign-in notice failed: {error}")
+
+
 PROFILE_DIR = HERE / "edge_gmail_profile"
 DEBUG_PORT = 9333
 SIGN_IN_WAIT_S = 600
@@ -137,6 +148,7 @@ def wait_for_gmail(started_at, compose_url):
                 send_to_sign_in(tab, compose_url)
         if not shown_hint and any("accounts.google.com" in t["url"] for t in open_tabs):
             shown_hint = True
+            threading.Thread(target=_tell_juwen_sign_in, args=("sending an email",), daemon=True).start()
             hint = (
                 f"First time only: sign in as {outreach.GMAIL_ACCOUNT} in the Edge window "
                 "that just opened (this helper window keeps its own sign-in, separate from Chrome).\n\n"

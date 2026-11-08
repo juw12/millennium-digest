@@ -30,3 +30,8 @@ app_actions.log
 prize_watch.json
 app_errors.log
 tests/last_ui_test.json
+
+# notices to Juwen and AI watchdog (local state/logs)
+notify_state.json
+notify.log
+logs/
