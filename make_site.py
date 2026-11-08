@@ -116,6 +116,7 @@ def build():
   .authors {{ display:block; color:var(--muted); font-size:.88rem; }}
   .muted {{ color:var(--muted); }}
   a {{ color:#4b2aa8; }}
+header a {{ color:#b9a5ff; }}
   pre {{ background:#14111f; color:#eae6ff; padding:14px; border-radius:10px; overflow-x:auto; font-size:.9rem; }}
   footer {{ color:var(--muted); font-size:.9rem; padding:24px 0 40px; border-top:1px solid var(--line); }}
 </style>
