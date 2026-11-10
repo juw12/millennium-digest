@@ -107,6 +107,12 @@ python -m PyInstaller --noconfirm --onedir --windowed --name "Millennium Dashboa
   - Follow-up due (21-day rule): drafted in the thread, *Open in Gmail*
   - Researcher reply: *They replied*
   - *Check Gmail now* runs the Gmail check immediately.
+- **Millennium Lab** (`lab.py`, `lab/index.html`): eight bot researchers in departments (BSD, RH, Erdős bench,
+  prize bounties, Kaggle Squares-in-Squares packing, library scout for NS/YM/PvNP/Hodge, referee, press room).
+  Each department always has one AI job open in `research_queue.json`; `ai_watchdog.py` refills it every 30 min,
+  so the lab works continuously (target 8 finished steps a day, `lab_departments.json`). Milestones and dates live
+  in `lab_targets.json`. `lab/index.html` is a live three.js scene (Paper style, like Cairn Founder Studio) that
+  re-reads `lab/lab_state.js` every minute; the dashboard header links to it ("3D Lab").
 - **Daily progress** (`daily_progress.py`): a 14-day strip (research step / upkeep only / idle), the streak, and
   today's step. Every day gets at least one research step: the nightly computer job if the research queue has one,
   otherwise an AI job `daily_YYYYMMDD` rotating BSD -> RH -> "prize problem of the day". It is queued by the 02:00

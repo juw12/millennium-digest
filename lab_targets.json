@@ -1,0 +1,46 @@
+{
+  "_note": "Milestones shown in the Lab and on the dashboard. 'auto' milestones are measured by lab.py; 'manual' ones are set by editing 'done' here. Dates are commitments for what this lab can honestly deliver; a proof of a Millennium problem is not on any timeline.",
+  "milestones": [
+    {
+      "id": "M1",
+      "title": "Lab at full speed: 8+ finished research steps a day (3-day average)",
+      "due": "2026-11-17",
+      "check": "steps_per_day",
+      "goal": 8
+    },
+    {
+      "id": "M2",
+      "title": "Squares in Squares: valid packing for every n = 1..1000 that beats the trivial grid",
+      "due": "2026-11-24",
+      "check": "squares_valid"
+    },
+    {
+      "id": "M3",
+      "title": "First-month package: BSD note, RH note, 30 prize dossiers, Kaggle-ready submission",
+      "due": "2026-12-10",
+      "check": "first_month_package"
+    },
+    {
+      "id": "M4",
+      "title": "A specialist confirms one lab result is new and correct",
+      "due": "2027-03-31",
+      "check": "manual",
+      "done": false
+    },
+    {
+      "id": "M5",
+      "title": "Squares in Squares final ranking (competition closes)",
+      "due": "2027-07-11",
+      "check": "manual",
+      "done": false
+    },
+    {
+      "id": "M6",
+      "title": "One year: an arXiv paper, or a prize problem record / small Erdos prize",
+      "due": "2027-11-10",
+      "check": "manual",
+      "done": false
+    }
+  ],
+  "not_on_timeline": "A proof of any Millennium problem. Nobody can schedule one; this lab produces evidence, records and papers, not proofs."
+}

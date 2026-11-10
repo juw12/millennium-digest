@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Millennium Lab</title>
+<link rel="stylesheet" href="lab.css">
+</head>
+<body>
+<header class="topbar">
+  <a class="back" href="../dashboard/index.html" title="Back to the dashboard">&larr; Dashboard</a>
+  <div class="brand">
+    <span class="logo" aria-hidden="true"></span>
+    <div><span class="brand-name">Millennium Lab</span><small>eight bot researchers, one real AI job each</small></div>
+  </div>
+  <div class="chips" id="chips" aria-live="polite"></div>
+  <span class="updated" id="updated"></span>
+</header>
+
+<main class="layout">
+  <section class="stage-wrap" aria-label="3D lab">
+    <div id="stage" class="stage"></div>
+    <div class="stage-hint">Drag to orbit &middot; scroll to zoom &middot; click a bot</div>
+    <div class="legend" id="legend"></div>
+    <div class="nowebgl" id="nowebgl" hidden>
+      <h2>3D view unavailable</h2>
+      <p>This browser has WebGL switched off. Every department and its job are still listed on the right.</p>
+    </div>
+    <section class="strip" aria-label="Finished steps per day">
+      <div class="strip-head"><h3>Finished steps per day</h3><span id="strip-target"></span></div>
+      <div class="bars" id="bars"></div>
+    </section>
+  </section>
+
+  <aside class="side">
+    <section class="panel" id="focus" aria-live="polite"></section>
+    <section class="panel">
+      <div class="panel-head"><h2>Departments</h2><span class="muted" id="dept-count"></span></div>
+      <div id="departments" class="departments"></div>
+    </section>
+    <section class="panel">
+      <div class="panel-head"><h2>When do results land?</h2></div>
+      <ol id="milestones" class="milestones"></ol>
+      <p class="honest" id="honest"></p>
+    </section>
+    <p class="foot">The bots are a picture of real work: each one is a job in <code>research_queue.json</code>.
+      &ldquo;Working&rdquo; means the AI agent is running it right now. Refreshes every minute.</p>
+  </aside>
+</main>
+
+<script src="vendor/three.global.js"></script>
+<script src="lab_state.js"></script>
+<script src="arena.js"></script>
+<script src="lab.js"></script>
+</body>
+</html>

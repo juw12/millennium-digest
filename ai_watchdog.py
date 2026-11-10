@@ -180,6 +180,8 @@ def main():
     try:
         catch_up_daily_step()
         check()
+        import lab
+        lab.write_state()  # show Copilot results right away
     except Exception as error:
         log(f"watchdog error: {error}")
     finally:
@@ -187,13 +189,17 @@ def main():
 
 
 def catch_up_daily_step():
-    """If the 02:00 research tick was missed (PC asleep), queue and hand over today's daily step here."""
+    """Every 30 minutes: refill the lab (one open job per department), hand new jobs to the agent and
+    refresh lab/lab_state.js for the live 3D lab page."""
     import ai_bridge
-    import daily_progress
-    daily_progress.ensure_daily_job()
+    import lab
+    created = lab.ensure_jobs()
+    if created:
+        log("lab jobs queued: " + ", ".join(created))
     posted = ai_bridge.bridge()
     if posted:
         log("handed to the agent: " + ", ".join(posted))
+    lab.write_state()
 
 
 if __name__ == "__main__":

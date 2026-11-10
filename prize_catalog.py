@@ -15,6 +15,7 @@ import datetime as dt
 import html
 import json
 import re
+import unicodedata
 import urllib.request
 from pathlib import Path
 
@@ -64,7 +65,7 @@ def parse_ledger(page):
             for label, value in re.findall(r'<span class="metric-label">(.*?)</span><strong>(.*?)</strong>', card, re.S)
         )
         family_label = clean(grab(r'<span class="family-label">(.*?)</span>'))
-        family = grab(r'class="problem-card family-([^"\s]+)').replace("erdÅ‘s", "erdos")
+        family = unicodedata.normalize("NFKD", html.unescape(grab(r'class="problem-card family-([^"\s]+)'))).encode("ascii", "ignore").decode()
         field = clean(grab(r'<p class="field-kicker">(.*?)</p>'))
         title = clean(grab(r"<h3>(.*?)</h3>"))
         statement = clean(grab(r'<p class="statement">(.*?)</p>'))

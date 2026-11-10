@@ -36,3 +36,7 @@ tests/last_ui_test.json
 notify_state.json
 notify.log
 logs/
+
+# live lab state (lab.py writes it every 30 min from the local job queue)
+lab/lab_state.js
+lab/lab_state.tmp

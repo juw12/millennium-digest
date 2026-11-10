@@ -1,0 +1,79 @@
+{
+  "_note": "Millennium Lab: one bot per department. Each department always has one job open in research_queue.json; when it finishes, lab.py queues the next one (every 30 min via ai_watchdog.py). max_open caps how many lab jobs sit in the shared agent queue at once (lower it if other projects starve).",
+  "max_open": 8,
+  "target_steps_per_day": 8,
+  "departments": [
+    {
+      "id": "bsd",
+      "name": "Murmuration Desk",
+      "bot": "Ada",
+      "problem": "Birch and Swinnerton-Dyer",
+      "role": "Elliptic-curve statistics: local densities, trace formula, Sawin-Sutherland comparison",
+      "color": 1,
+      "brief": "Continue the BSD thread. Read bsd_project/FINDINGS.md and roadmap.json BSD first. Next open items: derive a_c and c_c as explicit local densities (q-adic Hurwitz averages); compare the measured a2-weighted scale with Sawin-Sutherland arXiv:2504.12295; extend checks to new conductor ranges. Add the dated result line to bsd_project/FINDINGS.md under '## Automated runs'."
+    },
+    {
+      "id": "rh",
+      "name": "Zeta Desk",
+      "bot": "Bernhard",
+      "problem": "Riemann Hypothesis",
+      "role": "Zero statistics: finite-height corrections, BBLM amplitude, k-fit",
+      "color": 5,
+      "brief": "Continue the RH thread. Read rh_project/FINDINGS.md and roadmap.json RH first. Next open items: compare the 9-height BBLM amplitudes with the Bogomolny et al. 2006 second-order term; widen the exploratory k ~ 1.1 fit; test other statistics (number variance, nearest-neighbour tails) on the stored zeros. Add the dated result line to rh_project/FINDINGS.md under '## Automated runs'."
+    },
+    {
+      "id": "erdos",
+      "name": "Erdos Bench",
+      "bot": "Paul",
+      "problem": "Open Erdos prize problems",
+      "role": "One open Erdos prize problem per job: literature + forum check, computation, honest status",
+      "color": 2,
+      "brief": "Work the Erdos prize problem named below. Read its erdosproblems.com page, comments and cited papers first (many have recent partial results). Write prize_work/<id>.md: exact statement, prize, what is known (with references), and one computation you ran (script in prize_work/<id>/ with a gate reproducing a known value, e.g. a published small case). If you find something that looks new, set status needs_review with one line why; never post on the forum or claim a prize."
+    },
+    {
+      "id": "prize",
+      "name": "Bounty Hunters",
+      "bot": "Grace",
+      "problem": "Computer-attackable prize problems",
+      "role": "Searches, records and counterexamples for the catalogue's computable bounties",
+      "color": 3,
+      "brief": "Work the prize problem named below. Read the source page first. Write prize_work/<id>.md (statement, prize terms, best known record, why it is hard, feasibility for a laptop) and run one bounded search or experiment yourself (script in prize_work/<id>/, at most 1 h CPU, with a gate). Report the exact range searched. Never submit anything to a sponsor."
+    },
+    {
+      "id": "squares",
+      "name": "Packing Shop",
+      "bot": "Kepler",
+      "problem": "Squares in Squares (Kaggle, $50k)",
+      "role": "Solver for packing n unit squares (n = 1..1000) into the smallest square; tracks the score",
+      "color": 4,
+      "brief": "Improve the Squares in Squares solver in prize_work/squares-in-squares/ (create it on the first job). Score = sum over n=1..1000 of (L/sqrt(n) - 1), lower is better. Keep a strict validity checker (no overlaps, inside the container; exact or epsilon-safe geometry) as the gate. After every job write prize_work/squares-in-squares/best_score.json as {\"score\": float, \"valid\": true, \"baseline\": float, \"n_improved\": int, \"updated\": ISO time} and keep submission.csv for the best valid packing. Start from known constructions (Friedman's packing-squares page) before local search. Juwen uploads to Kaggle himself."
+    },
+    {
+      "id": "scout",
+      "name": "Library",
+      "bot": "Hypatia",
+      "problem": "Navier-Stokes, Yang-Mills, P vs NP, Hodge",
+      "role": "Reads the week's new papers on the four problems the lab does not compute on",
+      "color": 6,
+      "brief": "Read the newest digest in automation/digests/ and pick the 3 most substantial new papers on Navier-Stokes, Yang-Mills, P vs NP or Hodge. For each write a 6-10 line brief in scout_notes/<date>.md: claim, method, status (preprint / peer reviewed / known to have gaps), and whether anything is checkable by computation here. Flag crank or unrefereed 'proofs' as such."
+    },
+    {
+      "id": "review",
+      "name": "Referee",
+      "bot": "Emmy",
+      "problem": "Quality gate for every department",
+      "role": "Re-runs the gates of finished jobs, downgrades overclaims",
+      "color": 2,
+      "brief": "Review the finished lab jobs listed below. For each: re-run its script/gate, check the numbers in the result match the files, check the wording claims nothing beyond the evidence (no 'proof', no 'solved'). Write review_notes/<job id>.md (pass / fix / fail + one line), set the reviewed job's 'reviewed' field to pass|fix|fail, and fix wording in FINDINGS.md if needed."
+    },
+    {
+      "id": "writer",
+      "name": "Press Room",
+      "bot": "Euler",
+      "problem": "Papers and the results page",
+      "role": "Turns reviewed results into the first-month package: BSD note, RH note, prize dossier index",
+      "color": 1,
+      "brief": "Advance the first-month package (milestone M3): bsd_project/paper/bsd_note.md (F10/F11 + a2-weighted murmurations, honest limits, reproducible scripts listed), rh_project/paper/rh_note.md (finite-height BBLM corrections), prize_work/INDEX.md (one line per dossier). Only reviewed results go in. Drafts only: never email or publish."
+    }
+  ]
+}
