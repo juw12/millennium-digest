@@ -1,7 +1,7 @@
 {
-  "_note": "Millennium Lab: one bot per department. Each department always has one job open in research_queue.json; when it finishes, lab.py queues the next one (every 30 min via ai_watchdog.py). max_open caps how many lab jobs sit in the shared agent queue at once (lower it if other projects starve).",
-  "max_open": 8,
-  "target_steps_per_day": 8,
+  "_note": "Millennium Lab: one bot per department. Lab jobs run in parallel in lab_pool.py (pool.workers at once, OpenCode and Copilot CLI), not in the one-at-a-time Cairn autopilot. slots = jobs a department may have open at once; every_hours = minimum gap between its jobs; paused = true stops it. Prize-winnable work (Squares, Erdos) gets the most slots.",
+  "max_open": 11,
+  "target_steps_per_day": 12,
   "departments": [
     {
       "id": "bsd",
@@ -10,7 +10,8 @@
       "problem": "Birch and Swinnerton-Dyer",
       "role": "Elliptic-curve statistics: local densities, trace formula, Sawin-Sutherland comparison",
       "color": 1,
-      "brief": "Continue the BSD thread. Read bsd_project/FINDINGS.md and roadmap.json BSD first. Next open items: derive a_c and c_c as explicit local densities (q-adic Hurwitz averages); compare the measured a2-weighted scale with Sawin-Sutherland arXiv:2504.12295; extend checks to new conductor ranges. Add the dated result line to bsd_project/FINDINGS.md under '## Automated runs'."
+      "brief": "Continue the BSD thread. Read bsd_project/FINDINGS.md and roadmap.json BSD first. Next open items: derive a_c and c_c as explicit local densities (q-adic Hurwitz averages); compare the measured a2-weighted scale with Sawin-Sutherland arXiv:2504.12295; extend checks to new conductor ranges. Add the dated result line to bsd_project/FINDINGS.md under '## Automated runs'.",
+      "every_hours": 20
     },
     {
       "id": "rh",
@@ -19,7 +20,8 @@
       "problem": "Riemann Hypothesis",
       "role": "Zero statistics: finite-height corrections, BBLM amplitude, k-fit",
       "color": 5,
-      "brief": "Continue the RH thread. Read rh_project/FINDINGS.md and roadmap.json RH first. Next open items: compare the 9-height BBLM amplitudes with the Bogomolny et al. 2006 second-order term; widen the exploratory k ~ 1.1 fit; test other statistics (number variance, nearest-neighbour tails) on the stored zeros. Add the dated result line to rh_project/FINDINGS.md under '## Automated runs'."
+      "brief": "Continue the RH thread. Read rh_project/FINDINGS.md and roadmap.json RH first. Next open items: compare the 9-height BBLM amplitudes with the Bogomolny et al. 2006 second-order term; widen the exploratory k ~ 1.1 fit; test other statistics (number variance, nearest-neighbour tails) on the stored zeros. Add the dated result line to rh_project/FINDINGS.md under '## Automated runs'.",
+      "every_hours": 20
     },
     {
       "id": "erdos",
@@ -28,7 +30,8 @@
       "problem": "Open Erdos prize problems",
       "role": "One open Erdos prize problem per job: literature + forum check, computation, honest status",
       "color": 2,
-      "brief": "Work the Erdos prize problem named below. Read its erdosproblems.com page, comments and cited papers first (many have recent partial results). Write prize_work/<id>.md: exact statement, prize, what is known (with references), and one computation you ran (script in prize_work/<id>/ with a gate reproducing a known value, e.g. a published small case). If you find something that looks new, set status needs_review with one line why; never post on the forum or claim a prize."
+      "brief": "Work the Erdos prize problem named below. Read its erdosproblems.com page, comments and cited papers first (many have recent partial results). Write prize_work/<id>.md: exact statement, prize, what is known (with references), and one computation you ran (script in prize_work/<id>/ with a gate reproducing a known value, e.g. a published small case). If you find something that looks new, set status needs_review with one line why; never post on the forum or claim a prize. Check erdosproblems.com for the current status first (many are solved or have partial results). Any claimed proof must come with a Lean 4 statement (and proof if the toolchain is installed) in prize_work/<id>/lean/; without it the result stays needs_review.",
+      "slots": 2
     },
     {
       "id": "prize",
@@ -46,7 +49,8 @@
       "problem": "Squares in Squares (Kaggle, $50k)",
       "role": "Solver for packing n unit squares (n = 1..1000) into the smallest square; tracks the score",
       "color": 4,
-      "brief": "Improve the Squares in Squares solver in prize_work/squares-in-squares/ (create it on the first job). Score = sum over n=1..1000 of (L/sqrt(n) - 1), lower is better. Keep a strict validity checker (no overlaps, inside the container; exact or epsilon-safe geometry) as the gate. After every job write prize_work/squares-in-squares/best_score.json as {\"score\": float, \"valid\": true, \"baseline\": float, \"n_improved\": int, \"updated\": ISO time} and keep submission.csv for the best valid packing. Start from known constructions (Friedman's packing-squares page) before local search. Juwen uploads to Kaggle himself."
+      "brief": "Packing Shop (Kaggle Squares in Squares, $50k; $5k milestone prizes to the leaderboard leader on 17 Jan 2027 and 18 Apr 2027; final 18 Jul 2027). The harness is ready in prize_work/squares-in-squares/: sis.py (strict validator, score), nightly.py (runs every strategy in strategies/ for all n every night and keeps the best valid packing per n), best_score.json, submission.csv. Your job: add or improve ONE strategy file strategies/<name>.py (NAME + pack(n, seconds) -> list of (x, y, angle) or None), aimed at the n with the largest excess L/sqrt(n) - 1 (n just above a perfect square). Known families to implement and check: Goebel-style 45-degree strips, Friedman's best-known small packings (n <= 100), local optimisation (shrink + resolve overlaps). Test with `python nightly.py --minutes 2 --only <ns>` and report which n improved and the new total score. Never upload to Kaggle; Juwen submits.",
+      "slots": 2
     },
     {
       "id": "scout",
@@ -55,7 +59,8 @@
       "problem": "Navier-Stokes, Yang-Mills, P vs NP, Hodge",
       "role": "Reads the week's new papers on the four problems the lab does not compute on",
       "color": 6,
-      "brief": "Read the newest digest in automation/digests/ and pick the 3 most substantial new papers on Navier-Stokes, Yang-Mills, P vs NP or Hodge. For each write a 6-10 line brief in scout_notes/<date>.md: claim, method, status (preprint / peer reviewed / known to have gaps), and whether anything is checkable by computation here. Flag crank or unrefereed 'proofs' as such."
+      "brief": "Read the newest digest in automation/digests/ and pick the 3 most substantial new papers on Navier-Stokes, Yang-Mills, P vs NP or Hodge. For each write a 6-10 line brief in scout_notes/<date>.md: claim, method, status (preprint / peer reviewed / known to have gaps), and whether anything is checkable by computation here. Flag crank or unrefereed 'proofs' as such.",
+      "every_hours": 160
     },
     {
       "id": "review",
@@ -73,7 +78,38 @@
       "problem": "Papers and the results page",
       "role": "Turns reviewed results into the first-month package: BSD note, RH note, prize dossier index",
       "color": 1,
-      "brief": "Advance the first-month package (milestone M3): bsd_project/paper/bsd_note.md (F10/F11 + a2-weighted murmurations, honest limits, reproducible scripts listed), rh_project/paper/rh_note.md (finite-height BBLM corrections), prize_work/INDEX.md (one line per dossier). Only reviewed results go in. Drafts only: never email or publish."
+      "brief": "Advance the first-month package (milestone M3): bsd_project/paper/bsd_note.md (F10/F11 + a2-weighted murmurations, honest limits, reproducible scripts listed), rh_project/paper/rh_note.md (finite-height BBLM corrections), prize_work/INDEX.md (one line per dossier). Only reviewed results go in. Drafts only: never email or publish. Also draft public posts for Juwen to publish himself (Kaggle discussion write-ups, erdosproblems.com forum comments) in outbox/public/<date>-<topic>.md, only for results the Review Panel passed. Never post."
+    },
+    {
+      "id": "panel",
+      "name": "Review Panel",
+      "bot": "Hardy",
+      "problem": "Simulated expert review before any real expert sees a result",
+      "role": "Critiques each finished result through 3 expert lenses built from published papers (labelled simulated)",
+      "color": 6,
+      "slots": 1,
+      "brief": "Review Panel: before a lab result is shown to any real person, review it through three expert lenses. Build each lens ONLY from published work: pick the 3 researchers whose papers are closest to the result (automation/experts.json and the arXiv/MathSciNet record), read the relevant papers, and write what an expert grounded in THAT work would object to - methods, known counterexamples, prior results that already cover it, numerical pitfalls - each objection with a citation. Label the file clearly: 'SIMULATED review built from published papers; not the opinion of the named researchers.' Never quote or attribute opinions to real people, never use the panel in emails, never contact anyone. Re-run the result's gate script if there is one. Verdict per result: pass / fix (list) / reject. Write review_panel/<job id>.md and put the verdict in your result file as panel_verdict."
+    },
+    {
+      "id": "tools",
+      "name": "Workshop",
+      "bot": "Turing",
+      "problem": "Lab tooling: Lean 4 + Mathlib, solver speed-ups",
+      "role": "Installs and maintains tools the other departments need (one task at a time)",
+      "color": 5,
+      "slots": 1,
+      "every_hours": 24,
+      "task": "install Lean 4 (elan) + a Mathlib project so Erdos claims can be machine-checked",
+      "brief": "Workshop: make the lab's tools work. First task: install elan/Lean 4 without admin rights (official elan-init for Windows), create prize_work/lean/ as a Lake project depending on Mathlib, download the Mathlib cache (lake exe cache get) and check that `lake build` compiles a one-line test theorem. Record exact commands and versions in prize_work/lean/README.md. Next tasks when Lean works: speed up prize_work/squares-in-squares/sis.py (numpy or numba) without changing what it accepts."
     }
-  ]
+  ],
+  "pool": {
+    "workers": 3,
+    "engines": [
+      "opencode",
+      "copilot"
+    ],
+    "timeout_minutes": 100,
+    "max_attempts": 2
+  }
 }

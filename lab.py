@@ -127,6 +127,18 @@ def plan_job(dept, jobs, today, number):
         title = f"{dept['name']}: review {', '.join(job['id'] for job in waiting)}"
         topic = " Jobs to review: " + "; ".join(f"{job['id']} - {job.get('result', '')[:200]}" for job in waiting)
         extra = {"reviews": [job["id"] for job in waiting]}
+    elif dept["id"] == "panel":
+        waiting = [job for job in jobs if job.get("dept") not in (None, "panel", "review", "tools", "scout")
+                   and job.get("status") in ("done", "needs_review") and not job.get("panel_reviewed")][-2:]
+        if not waiting:
+            return None
+        title = f"{dept['name']}: simulated expert review of {', '.join(job['id'] for job in waiting)}"
+        topic = (" Results to review: " + "; ".join(f"{job['id']} - {job.get('result', '')[:240]}" for job in waiting)
+                 + " Write review_panel/<job id>.md for each and list them in 'reviewed_jobs' of your result file.")
+        extra = {"reviews": [job["id"] for job in waiting]}
+    elif dept["id"] == "tools":
+        title = f"{dept['name']}: {dept.get('task', 'keep the lab tooling working')}"
+        topic = carry
     elif dept["id"] == "writer":
         title = f"{dept['name']}: advance the first-month package (BSD note, RH note, prize index)"
         topic = f" Package status: {first_month_status()['text']}.{carry}"
@@ -155,21 +167,27 @@ def ensure_jobs(today=None, dry_run=False):
         return []
     jobs = queue.setdefault("jobs", [])
     open_lab = [job for job in jobs if job_dept(job) and job.get("status") in OPEN]
-    busy = {job_dept(job) for job in open_lab}
     room = config.get("max_open", 8) - len(open_lab)
     created = []
+    now = dt.datetime.now()
     for dept in config.get("departments", []):
-        if room <= 0:
-            break
-        if dept["id"] in busy:
+        if dept.get("paused"):
             continue
-        number = 1 + sum(1 for job in jobs if job.get("id", "").startswith(f"lab_{dept['id']}_{today:%Y%m%d}_"))
-        job = plan_job(dept, jobs, today, number)
-        if not job:
-            continue
-        created.append(job)
-        jobs.append(job)
-        room -= 1
+        mine = [job for job in jobs if job_dept(job) == dept["id"]]
+        open_mine = sum(1 for job in mine if job.get("status") in OPEN)
+        last_queued = max((job.get("queued") or job.get("bridged") or "" for job in mine), default="")
+        if last_queued and dept.get("every_hours"):
+            if (now - dt.datetime.fromisoformat(last_queued[:19])).total_seconds() < dept["every_hours"] * 3600:
+                continue
+        while room > 0 and open_mine < dept.get("slots", 1):
+            number = 1 + sum(1 for job in jobs if job.get("id", "").startswith(f"lab_{dept['id']}_{today:%Y%m%d}_"))
+            job = plan_job(dept, jobs, today, number)
+            if not job:
+                break
+            created.append(job)
+            jobs.append(job)
+            room -= 1
+            open_mine += 1
     if created and not dry_run:
         QUEUE.write_text(json.dumps(queue, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     return [job["id"] for job in created]
@@ -181,7 +199,23 @@ def _agent_jobs():
     return data if isinstance(data, list) else []
 
 
+def _pool_status(job_id):
+    entry = (_read(HERE / "logs" / "pool_state.json", {}) or {}).get(job_id)
+    if not entry or not entry.get("pid"):
+        return None
+    try:
+        import lab_pool
+        running = lab_pool.alive(entry["pid"])
+    except Exception:
+        running = False
+    return {"status": "running" if running else "queued", "rounds": len(entry.get("attempts", [])) + 1,
+            "updated": entry.get("started"), "engine": entry.get("engine")}
+
+
 def _agent_status(job_id, agent_jobs):
+    pooled = _pool_status(job_id)
+    if pooled:
+        return pooled
     matches = [job for job in agent_jobs if f"`{job_id}`" in job.get("goal", "")]
     if not matches:
         return None
@@ -250,7 +284,9 @@ def build_state(today=None):
     bots = []
     for dept in config.get("departments", []):
         mine = [job for job in jobs if job_dept(job) == dept["id"]]
-        current = next((job for job in reversed(mine) if job.get("status") in OPEN), None)
+        open_jobs = [job for job in mine if job.get("status") in OPEN]
+        running = [job for job in open_jobs if (_pool_status(job["id"]) or {}).get("status") == "running"]
+        current = (running or open_jobs or [None])[-1]
         finished = [job for job in mine if job.get("status") in ("done", "needs_review")]
         agent = _agent_status(current["id"], agent_jobs) if current else None
         if current is None:

@@ -28,6 +28,8 @@ def due_jobs(queue, today):
     for job in queue.get("jobs", []):
         if job.get("status") != "needs_ai" or job.get("bridged"):
             continue
+        if job.get("dept") or job["id"].startswith(("daily_", "tool_")):
+            continue  # lab jobs run in parallel in lab_pool.py, not in the one-at-a-time Cairn queue
         not_before = job.get("not_before")
         if not_before and today < dt.date.fromisoformat(not_before):
             continue

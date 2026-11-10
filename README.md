@@ -113,6 +113,14 @@ python -m PyInstaller --noconfirm --onedir --windowed --name "Millennium Dashboa
   so the lab works continuously (target 8 finished steps a day, `lab_departments.json`). Milestones and dates live
   in `lab_targets.json`. `lab/index.html` is a live three.js scene (Paper style, like Cairn Founder Studio) that
   re-reads `lab/lab_state.js` every minute; the dashboard header links to it ("3D Lab").
+- **Parallel lab pool** (`lab_pool.py`, task "Millennium lab pool" every 10 min): lab jobs no longer go to the
+  one-at-a-time Cairn autopilot. Up to `pool.workers` jobs (default 3) run at once as separate OpenCode / Copilot
+  CLI processes; workers write `lab_results/<id>.json`, the pool merges them, retries a failed run once with the
+  other engine and skips Copilot for 24 h when it reports it is not logged in. Departments have `slots` and
+  `every_hours`; the Review Panel (simulated expert review from published papers, never shown to real people) gates
+  outreach; the Workshop sets up Lean 4 + Mathlib. Packing search for Kaggle Squares in Squares runs every night
+  (`prize_work/squares-in-squares/nightly.py`, task "Millennium squares search"), and "Millennium insomnia" keeps
+  the laptop awake and online 22:30-08:30.
 - **Daily progress** (`daily_progress.py`): a 14-day strip (research step / upkeep only / idle), the streak, and
   today's step. Every day gets at least one research step: the nightly computer job if the research queue has one,
   otherwise an AI job `daily_YYYYMMDD` rotating BSD -> RH -> "prize problem of the day". It is queued by the 02:00

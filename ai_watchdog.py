@@ -127,6 +127,8 @@ def check(dry_run=False):
     for job in queue.get("jobs", []):
         if job.get("status") != "needs_ai" or not job.get("bridged"):
             continue
+        if job.get("dept") or job["id"].startswith(("daily_", "tool_")):
+            continue  # lab_pool.py retries lab jobs with the other engine itself
         fallback = job.get("fallback") or {}
         if fallback.get("finished"):
             decisions.append(f"{job['id']}: both AIs tried; notice {'already sent' if job.get('juwen_notified') else 'due'}")
