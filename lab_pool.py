@@ -36,7 +36,7 @@ DEPARTMENTS = HERE / "lab_departments.json"
 COPILOT = Path(os.path.expandvars(r"%LOCALAPPDATA%\GitHubCopilotCLI\copilot.exe"))
 OPEN = ("needs_ai", "running")
 PRIORITY = ["squares", "erdos", "panel", "review", "prize", "writer", "tools", "bsd", "rh", "scout"]
-DETACHED = 0x00000008 | 0x00000200 | 0x08000000  # DETACHED_PROCESS | NEW_PROCESS_GROUP | NO_WINDOW
+DETACHED = 0x00000008 | 0x00000200 | 0x08000000 | 0x00004000  # DETACHED | NEW_GROUP | NO_WINDOW | BELOW_NORMAL priority
 
 sys.path.insert(0, str(HERE))
 import lab  # noqa: E402
@@ -140,7 +140,7 @@ def prompt_for(job):
         f"research_queue.json. When finished write {result_file} as JSON: "
         '{"status": "done" | "needs_review" | "failed", "result": "1-3 sentences with the numbers", '
         '"finished": "<ISO time>", "files": ["paths you changed"]} plus any review/panel fields the protocol '
-        "asks for. Never push, never post, never email. End with STATUS: DONE."
+        "asks for. Keep any single computation under 20 minutes and single-threaded (8 workers share 8 cores). Never push, never post, never email. End with STATUS: DONE."
     )
 
 
@@ -158,6 +158,8 @@ def start(job, engine, state):
     stamp = dt.datetime.now()
     log_path = LOG_DIR / f"pool_{job['id']}_{engine}_{stamp:%Y%m%d_%H%M}.log"
     env = environment()
+    for key in ("OMP_NUM_THREADS", "NUMBA_NUM_THREADS", "MKL_NUM_THREADS", "OPENBLAS_NUM_THREADS"):
+        env[key] = "1"  # 8 workers on 8 cores: each worker's own computations stay single-threaded
     if engine == "copilot":
         env.setdefault("HTTPS_PROXY", "http://localhost:3128")
         env.setdefault("HTTP_PROXY", "http://localhost:3128")
@@ -194,12 +196,29 @@ def merge_results(queue):
     return merged
 
 
+def save_queue_merged(queue, original_json):
+    """Write only the jobs this tick changed on top of the CURRENT file, so a slow tick never overwrites
+    results or jobs that other scripts added meanwhile."""
+    before = {job["id"]: json.dumps(job, sort_keys=True) for job in json.loads(original_json)}
+    mine = {job["id"]: job for job in queue.get("jobs", []) if before.get(job["id"]) != json.dumps(job, sort_keys=True)}
+    fresh = read_json(QUEUE, None) or queue
+    fresh_jobs = fresh.setdefault("jobs", [])
+    index = {job["id"]: position for position, job in enumerate(fresh_jobs)}
+    for job_id, job in mine.items():
+        if job_id in index:
+            fresh_jobs[index[job_id]] = job
+        else:
+            fresh_jobs.append(job)
+    write_json(QUEUE, fresh)
+
+
 def tick():
     config = settings()
     queue = read_json(QUEUE, None)
     if not queue:
         return
     state = read_json(STATE, {})
+    original = json.dumps(queue.get("jobs", []), sort_keys=True)
     jobs = {job["id"]: job for job in queue.get("jobs", [])}
     changed = False
 
@@ -264,7 +283,7 @@ def tick():
         changed = True
     write_json(STATE, state)
     if changed:
-        write_json(QUEUE, queue)
+        save_queue_merged(queue, original)
 
 
 def status():
@@ -281,9 +300,20 @@ if __name__ == "__main__":
         status()
     else:
         LOG_DIR.mkdir(exist_ok=True)
+        import faulthandler
+        hang_log = open(LOG_DIR / "pool_hang.txt", "w", encoding="utf-8")
+        faulthandler.dump_traceback_later(240, exit=True, file=hang_log)  # a tick takes ~1 s; never hang
         lock = LOG_DIR / "lab_pool.lock"
-        if lock.exists() and (dt.datetime.now().timestamp() - lock.stat().st_mtime) < 300:
-            sys.exit(0)
+        if lock.exists():
+            try:
+                holder = int(lock.read_text().strip() or 0)
+            except ValueError:
+                holder = 0
+            if alive(holder) and (dt.datetime.now().timestamp() - lock.stat().st_mtime) < 300:
+                sys.exit(0)
+            if alive(holder):
+                kill_tree(holder)
+                log(f"killed stuck pool tick (pid {holder})")
         lock.write_text(str(os.getpid()))
         try:
             lab.ensure_jobs()
