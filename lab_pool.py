@@ -15,8 +15,12 @@ State: logs/pool_state.json (git-ignored). Log: logs/pool.log, one log file per 
 Usage: python lab_pool.py            one tick
        python lab_pool.py --status   show running workers
 """
-import ctypes
-import datetime as dt
+import time
+
+SCRIPT_START = time.time()
+
+import ctypes  # noqa: E402
+import datetime as dt  # noqa: E402
 import json
 import os
 import re
@@ -115,12 +119,13 @@ def _copilot_needs_login(log_path):
 
 
 def copilot_usable():
-    """Copilot CLI exists and has not reported 'please log in' in the last 24 h (then it is tried again)."""
+    """Copilot CLI exists and has not reported 'please log in' in the last hour (then it is tried again,
+    so a fresh /login is picked up automatically; a failed check costs ~1 min and is not counted as an attempt)."""
     if not COPILOT.exists():
         return False
     if COPILOT_FLAG.exists():
         age_hours = (dt.datetime.now().timestamp() - COPILOT_FLAG.stat().st_mtime) / 3600
-        return age_hours > 24
+        return age_hours > 1
     return True
 
 
@@ -286,6 +291,18 @@ def tick():
         save_queue_merged(queue, original)
 
 
+def process_started():
+    """Seconds between this process's creation and the first line of the script (interpreter startup)."""
+    creation, exit_time, kernel, user = (ctypes.c_ulonglong() for _ in range(4))
+    handle = ctypes.c_void_p(-1)  # pseudo handle of the current process (must be pointer-sized)
+    ok = ctypes.windll.kernel32.GetProcessTimes(handle, ctypes.byref(creation), ctypes.byref(exit_time),
+                                                ctypes.byref(kernel), ctypes.byref(user))
+    if not ok or not creation.value:
+        return 0.0
+    created = creation.value / 1e7 - 11644473600  # FILETIME (100 ns since 1601) -> Unix seconds
+    return max(0.0, SCRIPT_START - created)
+
+
 def status():
     state = read_json(STATE, {})
     for job_id, entry in state.items():
@@ -316,9 +333,14 @@ if __name__ == "__main__":
                 log(f"killed stuck pool tick (pid {holder})")
         lock.write_text(str(os.getpid()))
         try:
-            lab.ensure_jobs()
-            tick()
-            lab.write_state()
+            phases = [("startup", time.time() - process_started())]
+            for name, step in (("ensure_jobs", lab.ensure_jobs), ("tick", tick), ("write_state", lab.write_state)):
+                begun = time.time()
+                step()
+                phases.append((name, time.time() - begun))
+            total = time.time() - SCRIPT_START + phases[0][1]
+            if total > 20:  # normal tick ~1 s; record where a slow scheduled tick spent its time
+                log("slow tick %.0f s: " % total + ", ".join(f"{name} {seconds:.1f}s" for name, seconds in phases))
         except Exception as error:
             log(f"pool error: {error}")
             raise
