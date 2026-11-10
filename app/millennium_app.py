@@ -56,7 +56,7 @@ document.addEventListener('click', function (event) {
 def load_modules():
     modules = {}
     # order matters: helpers first, so dashboard/action pick up the freshly reloaded versions
-    for name in ("dashboard_charts", "history", "progress", "dashboard_extras", "dashboard_results", "dashboard", "outreach", "action"):
+    for name in ("dashboard_charts", "history", "progress", "dashboard_extras", "dashboard_results", "daily_progress", "dashboard", "outreach", "action"):
         if name in sys.modules:
             modules[name] = importlib.reload(sys.modules[name])
         else:

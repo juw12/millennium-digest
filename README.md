@@ -107,6 +107,16 @@ python -m PyInstaller --noconfirm --onedir --windowed --name "Millennium Dashboa
   - Follow-up due (21-day rule): drafted in the thread, *Open in Gmail*
   - Researcher reply: *They replied*
   - *Check Gmail now* runs the Gmail check immediately.
+- **Daily progress** (`daily_progress.py`): a 14-day strip (research step / upkeep only / idle), the streak, and
+  today's step. Every day gets at least one research step: the nightly computer job if the research queue has one,
+  otherwise an AI job `daily_YYYYMMDD` rotating BSD -> RH -> "prize problem of the day". It is queued by the 02:00
+  research tick and, if that run was missed, by the 30-minute AI watchdog; `ai_bridge.py` hands it to the agent
+  through the Cairn autopilot queue (`cairn autopilot add`).
+- **All open prize problems in the world** (`prize_catalog.py`, weekly): every unsolved problem with a cash prize
+  we could find: the full [Prize Problem Ledger](https://prizeproblems.org/) (Millennium, Beal, Collatz, every open
+  Erdős prize, Wolfram, Certicom, EFF, ...) plus hand-checked open challenges in `prizes.json` → `extra_catalog`
+  (Kaggle Squares in Squares, Hutter Prize, Vesuvius Challenge, XPRIZE). Searchable, filterable, with a
+  "computer can attack" tag for problems where a search or record can win without a proof.
 - **Progress per problem**: a stage bar (5 stages) and the e-mail timeline (drafted, sent, reply, answered)
   from the ledger, digests and `EVIDENCE.json`, plus "next on my end" from the local `roadmap.json`.
 - **Activity log**: every button press is appended to `activity_log.jsonl`. Older events are rebuilt

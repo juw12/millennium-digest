@@ -20,6 +20,7 @@ import webbrowser
 from urllib.parse import quote
 
 import dashboard_charts as charts
+import daily_progress
 import dashboard_extras as extras
 import dashboard_results as results_ui
 import dashboard_interactive
@@ -515,12 +516,14 @@ def build():
     built_stamp = int(time.time())
     nav_html = ui.section_nav([
         ("needs", "Needs you", len(actions) or ""),
+        ("daily", "Daily", ""),
         ("progress", "Problems", ""),
         ("papers", "Papers", ""),  # red badges are only for things that need you
         ("outreach", "Outreach", ""),
         ("results", "Results", ""),
         ("evidence", "Evidence", ""),
         ("prizes", "Prizes", ""),
+        ("allprizes", "All prizes", ""),
         ("studies", "Studies", ""),
         ("activity", "Activity", ""),
     ])
@@ -648,6 +651,8 @@ footer {{ max-width:1180px; margin:0 auto; padding:0 24px 30px; color:var(--mute
     <p class="sub">Emails are sent automatically when they pass every outreach rule: follow-ups, answers and first contacts. {_send_status()}</p></div></div>
     {todo_html}</section>
 
+  {daily_progress.section_html()}
+
   {progress_html}
 
   <div class="grid2">
@@ -664,6 +669,7 @@ footer {{ max-width:1180px; margin:0 auto; padding:0 24px 30px; color:var(--mute
   {results_ui.results_section()}
   {results_ui.evidence_section()}
   {results_ui.prizes_section()}
+  {results_ui.prize_catalog_section()}
 
   <div class="grid2 anchor" id="studies">{research_html}</div>
 

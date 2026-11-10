@@ -208,3 +208,60 @@ def prizes_section():
   {"".join(rows)}</table></div>
   <p class="note"><b>Best bet:</b> Squares in Squares is optimisation, not proof &mdash; computers can compete. It needs your own Kaggle account
   (identity and prize payment are tied to it). New bounties: {registries}</p></section>"""
+
+
+_FAMILY = {"institutional": "Institutions", "erdos": "Erd&#337;s", "independent": "Individuals",
+           "science": "Science &amp; tech", "competition": "Competitions"}
+
+
+def prize_catalog_section():
+    """Every open problem with a cash prize we could find (prize_catalog.py, weekly), searchable and filterable."""
+    catalog = _read(HERE / "prize_catalog.json")
+    if not catalog or not catalog.get("items"):
+        return ('<section class="card anchor" id="allprizes"><div class="card-head"><div><h2>All open prize problems</h2>'
+                '<p class="sub">Run <code>python prize_catalog.py</code> to build the world catalogue.</p></div></div></section>')
+    items = catalog["items"]
+    rows, counts = [], {"computable": 0}
+    for item in items:
+        family = item.get("family", "independent")
+        counts[family] = counts.get(family, 0) + 1
+        kinds = [family] + (["computable"] if item.get("computable") else [])
+        counts["computable"] += bool(item.get("computable"))
+        sponsor = item.get("sponsor") or ""
+        who = f"{sponsor} &middot; " if sponsor and sponsor.lower() not in ("institutional", "independent", "erdős") else ""
+        new = " <span class='chip good'>new</span>" if item.get("new_since_last_check") else ""
+        attack = "<span class='chip good'>computer can attack</span>" if item.get("computable") else "<span class='chip'>needs a proof</span>"
+        searchable = f"{item['id']} {item['title']} {item.get('field', '')} {sponsor} {item.get('statement', '')}".lower()
+        rows.append(
+            f"<tr data-kind='{' '.join(kinds)}' data-text='{html.escape(searchable, quote=True)}'>"
+            f"<td class='who' style='white-space:normal;overflow-wrap:anywhere'><a href='{html.escape(item['url'])}'>{html.escape(item['title'])}</a>{new}"
+            f"<br><span class='sub'>{html.escape(item['id'])} &middot; {who}{html.escape(item.get('field', ''))}</span></td>"
+            f"<td>{html.escape(item.get('reward', ''))}</td>"
+            f"<td>{html.escape(item.get('open_since', ''))}</td>"
+            f"<td>{attack}<br><span class='sub'>{html.escape(item.get('verification', ''))}</span></td></tr>"
+        )
+    chips = [("all", "All", len(items)), ("computable", "Computer can attack", counts["computable"])]
+    chips += [(key, label, counts[key]) for key, label in _FAMILY.items() if counts.get(key)]
+    chip_html = '<div class="fchips" role="group" aria-label="Filter prize problems">' + "".join(
+        f'<button type="button" class="fchip{" on" if value == "all" else ""}" data-filter="{value}">{label} <b>{count}</b></button>'
+        for value, label, count in chips
+    ) + "</div>"
+    stale = f" &middot; last fetch failed ({html.escape(catalog['error'][:60])}), showing the list from {catalog.get('checked')}" if catalog.get("error") else ""
+    millions = catalog.get("total_usd", 0) / 1e6
+    return f"""
+<section class="card anchor" id="allprizes"><div class="card-head"><div><h2>All open prize problems in the world</h2>
+  <p class="sub">{len(items)} unsolved problems with a cash prize, about ${millions:,.1f} million in total (rough USD; XPRIZE Healthspan is $101 M of it)
+  &middot; refreshed weekly from the Prize Problem Ledger plus hand-checked challenges &middot; checked {html.escape(str(catalog.get('checked')))}{stale}</p></div>
+  <span class="chip good">{counts['computable']} computer-attackable</span></div>
+  <div class="fbox" data-fbox="allprizes" data-limit="25">
+   <div class="ftools"><input type="search" class="fsearch" data-search placeholder="Search problems, fields, sponsors" aria-label="Search prize problems">
+   {chip_html}</div>
+   <div class="table-wrap"><table><tr><th>Problem</th><th style="width:16%">Prize</th><th style="width:9%">Open since</th><th style="width:20%">How to win</th></tr>
+   {''.join(rows)}</table></div>
+   <p class="fempty muted small" hidden>No prize problem matches.</p>
+   <div class="more-row"><button type="button" class="btn ghost">Show all {len(items)}</button></div>
+  </div>
+  <p class="note">"Computer can attack" = a search, record, construction or counterexample can win without a full proof. The daily AI step works
+  through these one by one (notes in <code>prize_work/</code>). Nothing is ever submitted automatically.
+  Sources: <a href="https://prizeproblems.org/">Prize Problem Ledger</a> &middot; <a href="https://www.erdosproblems.com/prizes">Erd&#337;s prizes</a></p>
+</section>"""

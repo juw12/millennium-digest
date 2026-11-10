@@ -360,7 +360,10 @@ def test_page(browser, path, app_mode):
 
 def run_browser_checks():
     with sync_playwright() as playwright:
-        browser = playwright.chromium.launch()
+        try:
+            browser = playwright.chromium.launch()
+        except PlaywrightError:  # bundled Chromium broken or missing: use the installed Edge (same engine)
+            browser = playwright.chromium.launch(channel="msedge")
         try:
             if "--page" in sys.argv:
                 test_page(browser, Path(sys.argv[sys.argv.index("--page") + 1]).resolve(), app_mode=True)

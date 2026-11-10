@@ -1,5 +1,5 @@
 {
-  "_note": "Paid math problems / bounties. Checked by web search 2026-11-07. prize_watch.py re-checks every link weekly. 'fit' = how realistic for us (computation-friendly = high; needs a real proof = low).",
+  "_note": "Paid math problems / bounties. Checked by web search 2026-11-07. prize_watch.py re-checks every link weekly. 'fit' = how realistic for us (computation-friendly = high; needs a real proof = low). 'extra_catalog' = verified open prizes the Prize Problem Ledger does not list; prize_catalog.py merges them with the ledger into prize_catalog.json (checked 2026-11-10 on the official pages).",
   "prizes": [
     {
       "name": "Squares in Squares (Kaggle)",
@@ -24,10 +24,10 @@
       "status": "open"
     },
     {
-      "name": "Erd\u0151s problems prizes",
-      "sponsor": "various (Erd\u0151s-tradition prizes)",
+      "name": "Erdős problems prizes",
+      "sponsor": "various (Erdős-tradition prizes)",
       "amount": "about $59,700 in total across listed problems",
-      "task": "Solve a listed Erd\u0151s problem (proof or counterexample). Why: some ask for a counterexample, which computation can find.",
+      "task": "Solve a listed Erdős problem (proof or counterexample). Why: some ask for a counterexample, which computation can find.",
       "eligibility": "anyone",
       "deadline": "none",
       "url": "https://www.erdosproblems.com/prizes",
@@ -87,6 +87,86 @@
     {
       "name": "Prize Problem Ledger",
       "url": "https://prizeproblems.org/"
+    }
+  ],
+  "extra_catalog": [
+    {
+      "id": "KAGGLE-SQ",
+      "title": "Squares in Squares: pack n unit squares (n = 1..1000) into the smallest square",
+      "family": "competition",
+      "sponsor": "Google / Kaggle",
+      "field": "Geometry (optimisation)",
+      "statement": "Score = sum of (L/sqrt(n) - 1). Pure optimisation, no proof needed.",
+      "reward": "$50,000 pool",
+      "open_since": "2026",
+      "verification": "Deadline 2027-07-11",
+      "url": "https://www.kaggle.com/competitions/squares-in-squares",
+      "computable": true
+    },
+    {
+      "id": "CONJ-IO",
+      "title": "Conjectures.io: 272 Lean-checked conjecture bounties",
+      "family": "competition",
+      "sponsor": "Conjectures.io (paid in Bittensor alpha tokens)",
+      "field": "Formal proof (Lean)",
+      "statement": "Machine-checked proof of a listed conjecture; payout per problem (about $4,700 on the largest listed).",
+      "reward": "about $4,700 (largest listed)",
+      "open_since": "2026",
+      "verification": "Rolling; crypto payout",
+      "url": "https://conjectures.io/problems",
+      "computable": false
+    },
+    {
+      "id": "HUTTER",
+      "title": "Hutter Prize: compress the 1 GB file enwik9 below the current record",
+      "family": "science",
+      "sponsor": "Marcus Hutter",
+      "field": "Data compression / AI",
+      "statement": "Payout is proportional to the improvement over the record; 85,485 EUR paid so far from a 500,000 EUR fund.",
+      "reward": "€500,000 fund (pro rata)",
+      "open_since": "2006",
+      "verification": "Open, rolling",
+      "url": "http://prize.hutter1.net/",
+      "computable": true
+    },
+    {
+      "id": "VESUVIUS-2027",
+      "title": "Vesuvius Challenge 2027 Grand Prize: fully unroll and read a Herculaneum scroll",
+      "family": "science",
+      "sponsor": "Vesuvius Challenge",
+      "field": "Computer vision / ML",
+      "statement": "$800,000 to the first team to fully unroll and make readable a scroll; $1,000,000 in total with places 2-4.",
+      "reward": "$1,000,000 total",
+      "open_since": "2023",
+      "verification": "Deadline 2027-06-25",
+      "url": "https://scrollprize.org/prizes",
+      "computable": true
+    },
+    {
+      "id": "XPRIZE-HEALTHSPAN",
+      "title": "XPRIZE Healthspan: restore muscle, cognitive and immune function in older adults",
+      "family": "science",
+      "sponsor": "XPRIZE / Hevolution",
+      "field": "Biomedicine",
+      "statement": "Therapeutic that restores function lost to ageing by the equivalent of 10+ years; clinical-trial based.",
+      "reward": "$101,000,000",
+      "open_since": "2023",
+      "verification": "Active to 2030; team registration closed",
+      "url": "https://www.xprize.org/prizes/healthspan",
+      "computable": false
+    },
+    {
+      "id": "XPRIZE-QUANTUM",
+      "title": "XPRIZE Quantum Applications: a quantum algorithm with real-world advantage",
+      "family": "science",
+      "sponsor": "XPRIZE / Google Quantum AI / GESDA",
+      "field": "Quantum computing",
+      "statement": "Show a quantum algorithm that beats classical methods on a useful real-world problem.",
+      "reward": "$5,000,000",
+      "open_since": "2024",
+      "verification": "Active to 2027; finals stage",
+      "url": "https://www.xprize.org/prizes/qc-apps",
+      "computable": true
     }
   ]
 }

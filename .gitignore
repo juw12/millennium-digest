@@ -28,6 +28,7 @@ contacts_log.*.json
 repo_sync.log
 app_actions.log
 prize_watch.json
+prize_catalog.json
 app_errors.log
 tests/last_ui_test.json
 

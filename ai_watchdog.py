@@ -178,11 +178,22 @@ def main():
         return
     LOCK.write_text(str(os.getpid()))
     try:
+        catch_up_daily_step()
         check()
     except Exception as error:
         log(f"watchdog error: {error}")
     finally:
         LOCK.unlink(missing_ok=True)
+
+
+def catch_up_daily_step():
+    """If the 02:00 research tick was missed (PC asleep), queue and hand over today's daily step here."""
+    import ai_bridge
+    import daily_progress
+    daily_progress.ensure_daily_job()
+    posted = ai_bridge.bridge()
+    if posted:
+        log("handed to the agent: " + ", ".join(posted))
 
 
 if __name__ == "__main__":

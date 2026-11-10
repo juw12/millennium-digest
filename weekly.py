@@ -94,6 +94,11 @@ def prize_watch():
     log(f"prize watch: exit {code}  {tail}")
 
 
+def prize_catalog():
+    code, tail = run([PYTHON, "prize_catalog.py"])
+    log(f"prize catalogue: exit {code}  {tail}")
+
+
 def dashboard():
     code, tail = run([PYTHON, "dashboard.py"])
     log(f"dashboard: exit {code}  {tail}")
@@ -116,6 +121,7 @@ def main():
         step("digest", digest)
     step("publish", site_and_publish)
     step("prize watch", prize_watch)
+    step("prize catalogue", prize_catalog)
     step("dashboard", dashboard)
     step("ui test", ui_test)
     log("weekly run finished")
