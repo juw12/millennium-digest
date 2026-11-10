@@ -21,6 +21,13 @@
       "check": "first_month_package"
     },
     {
+      "id": "K1",
+      "due": "2027-01-17",
+      "title": "Kaggle Squares milestone prize: $5,000 to the leaderboard leader on 17 Jan 2027 (second one 18 Apr 2027)",
+      "done": false,
+      "note": "manual: Juwen submits from his Kaggle account; needs a top leaderboard score by then"
+    },
+    {
       "id": "M4",
       "title": "A specialist confirms one lab result is new and correct",
       "due": "2027-03-31",
@@ -29,8 +36,8 @@
     },
     {
       "id": "M5",
-      "title": "Squares in Squares final ranking (competition closes)",
-      "due": "2027-07-11",
+      "title": "Squares in Squares final submission (entry deadline 11 Jul, final 18 Jul 2027; top 5 win $12k-$5k)",
+      "due": "2027-07-18",
       "check": "manual",
       "done": false
     },
