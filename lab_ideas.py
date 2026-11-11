@@ -92,18 +92,24 @@ def _load_quiet():
         return {"cards": []}
 
 
-def save(bank):
-    """Swap the new bank in whole. Windows refuses the swap while another program has the file open, so try again."""
-    temp = IDEAS.with_suffix(".tmp")
-    temp.write_text(json.dumps(bank, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+def swap_in(temp, target):
+    """Swap a finished file in whole. Windows refuses the swap while another program has the target open, so try
+    again (2026-11-11: a refused swap of the queue and of the pool state each ended a pool tick)."""
     for attempt in range(8):
         try:
-            temp.replace(IDEAS)
+            temp.replace(target)
             return
         except PermissionError:
             if attempt == 7:
                 raise
             time.sleep(0.25)
+
+
+def save(bank):
+    """Swap the new bank in whole."""
+    temp = IDEAS.with_suffix(".tmp")
+    temp.write_text(json.dumps(bank, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    swap_in(temp, IDEAS)
 
 
 def _find(bank, card_id):

@@ -43,6 +43,7 @@ import re
 import shutil
 import subprocess
 import sys
+import traceback
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -76,6 +77,16 @@ def log(text):
         handle.write(f"{dt.datetime.now():%Y-%m-%d %H:%M}  {text}\n")
 
 
+def describe(error):
+    """Type, message and place of an exception: "pool error: " plus an empty message said nothing (2026-11-11)."""
+    frames = traceback.extract_tb(error.__traceback__)
+    text = f"{type(error).__name__}: {error}" if str(error) else type(error).__name__
+    if frames:
+        text += (f" ({Path(frames[-1].filename).name} line {frames[-1].lineno}, "
+                 + " > ".join(frame.name for frame in frames[-4:]) + ")")
+    return text
+
+
 def read_json(path, default):
     try:
         return json.loads(Path(path).read_text(encoding="utf-8"))
@@ -86,7 +97,7 @@ def read_json(path, default):
 def write_json(path, data):
     temp = Path(path).with_suffix(".tmp")
     temp.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-    temp.replace(path)
+    lab_ideas.swap_in(temp, path)
 
 
 def settings():
@@ -733,9 +744,11 @@ def collect():
                 lab_ideas.note(job, {"status": "failed", "result": job["error"]}, "no result")
             except Exception as error:
                 log(f"{job_id}: idea not released: {error}")
-    write_json(STATE, state)
-    if changed:
-        save_queue_merged(queue, original)
+    try:
+        write_json(STATE, state)
+    finally:  # the queue holds the merged marks: without them the next tick merges the same results again
+        if changed:
+            save_queue_merged(queue, original)
 
 
 def fill():
@@ -856,7 +869,7 @@ if __name__ == "__main__":
             if total > 20:  # normal tick ~1 s; record where a slow scheduled tick spent its time
                 log("slow tick %.0f s: " % total + ", ".join(f"{name} {seconds:.1f}s" for name, seconds in phases))
         except Exception as error:
-            log(f"pool error: {error}")
+            log(f"pool error: {describe(error)}")
             raise
         finally:
             lock.unlink(missing_ok=True)

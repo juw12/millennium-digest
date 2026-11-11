@@ -332,7 +332,7 @@ def ensure_jobs(today=None, dry_run=False):
         fresh["jobs"].extend(created)
         temp = QUEUE.with_name(QUEUE.name + ".lab.tmp")
         temp.write_text(json.dumps(fresh, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-        temp.replace(QUEUE)
+        lab_ideas.swap_in(temp, QUEUE)
         for job in created:
             try:
                 if job.get("idea_id"):
@@ -490,7 +490,7 @@ def write_state(today=None):
     STATE_JS.parent.mkdir(exist_ok=True)
     temp = STATE_JS.with_suffix(".tmp")
     temp.write_text("window.LAB_STATE = " + json.dumps(state, ensure_ascii=False) + ";\n", encoding="utf-8")
-    temp.replace(STATE_JS)
+    lab_ideas.swap_in(temp, STATE_JS)
     return state
 
 
