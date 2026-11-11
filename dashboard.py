@@ -514,6 +514,7 @@ def build():
     log_html = "".join(f"<div>{html.escape(line)}</div>" for line in last_weekly_lines())
     built = dt.datetime.now().strftime("%a %d %b %Y, %H:%M").replace(" 0", " ")
     built_stamp = int(time.time())
+    built_text = time.strftime("%H:%M", time.localtime(built_stamp))
     nav_html = ui.section_nav([
         ("needs", "Needs you", len(actions) or ""),
         ("daily", "Daily", ""),
@@ -532,6 +533,8 @@ def build():
     page = f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<script>/* The scheduled refresh rebuilds this page every 10 min; reload it every 5 min unless you are typing. */
+setInterval(function () {{ var a = document.activeElement; if (!a || !/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) location.reload(); }}, 300000);</script>
 <title>Millennium Dashboard</title>
 <link rel="icon" href="logo.svg">
 <style>
@@ -640,7 +643,7 @@ footer {{ max-width:1180px; margin:0 auto; padding:0 24px 30px; color:var(--mute
 <body data-built="{built_stamp}">
 <header class="top"><div class="top-in">
   <div class="brand"><div class="logo" aria-label="Millennium Dashboard logo"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="34" height="34"> <defs> <linearGradient id="mlg-head" x1="0" y1="0" x2="1" y2="1"> <stop offset="0" stop-color="#0f766e"/> <stop offset="1" stop-color="#06b6d4"/> </linearGradient> </defs> <rect x="0" y="0" width="64" height="64" rx="18" fill="url(#mlg-head)"/> <line x1="11" y1="32" x2="53" y2="32" stroke="#ffffff" stroke-opacity="0.32" stroke-width="2.6" stroke-linecap="round"/> <path d="M13 32 C 19 13, 27 13, 32 32 S 45 51, 51 32" fill="none" stroke="#ffffff" stroke-width="5.2" stroke-linecap="round"/> <circle cx="32" cy="32" r="5" fill="#fde047"/> </svg></div><div><h1>Millennium Dashboard</h1><p>Research monitor &middot; private, stays on this PC</p></div></div>
-  <div class="top-meta">{task_chip}{status_html}{version_chip}<span>Next run {html.escape(next_text)}</span>
+  <div class="top-meta">{task_chip}{status_html}{version_chip}<span title="Page rebuilt at this time">Updated {built_text}</span><span>Next run {html.escape(next_text)}</span>
     <a href="../lab/index.html" title="Live 3D view of the eight bot researchers">3D Lab</a><a href="{PUBLIC_PAGE}">Public page</a><a href="{REPO}">Code</a><a class="btn ghost" href="millennium://refresh">Refresh</a></div>
 </div></header>
 {nav_html}
