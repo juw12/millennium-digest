@@ -49,6 +49,9 @@ GMAIL = "https://mail.google.com/mail/u/0/"
 WATCHED_STATES = {"drafted", "sent", "replied"}
 MAX_THREADS = 5
 PAGE_TIMEOUT_MS = 45000
+# Gmail's full 'load' event can hang for minutes (long-poll requests); the DOM is enough,
+# every caller then waits for the rows/selectors it needs.
+GOTO_WAIT = "domcontentloaded"
 DATE_FORMATS = (
     "%d %b %Y, %H:%M",
     "%a, %d %b %Y, %H:%M",
@@ -146,7 +149,7 @@ def _read_thread(context, thread_id):
     """Messages of one thread (drafts are not messages), read in a fresh tab."""
     page = context.new_page()
     try:
-        page.goto(GMAIL + "#all/" + thread_id, timeout=PAGE_TIMEOUT_MS)
+        page.goto(GMAIL + "#all/" + thread_id, timeout=PAGE_TIMEOUT_MS, wait_until=GOTO_WAIT)
         page.wait_for_selector("h2.hP", timeout=PAGE_TIMEOUT_MS)
         return _read_open_thread(page, thread_id)
     finally:
@@ -185,7 +188,7 @@ def read_threads(context, address):
     query = f"(from:{address} OR to:{address}) -in:draft newer_than:180d"
     page = context.new_page()
     try:
-        page.goto(GMAIL + "#search/" + quote(query, safe=""), timeout=PAGE_TIMEOUT_MS)
+        page.goto(GMAIL + "#search/" + quote(query, safe=""), timeout=PAGE_TIMEOUT_MS, wait_until=GOTO_WAIT)
         _wait_for_results(page)
         thread_ids = []
         for node in page.query_selector_all("div[role=main] tr.zA [data-legacy-thread-id]"):
@@ -212,7 +215,7 @@ def save_thread_draft(context, thread_id, body):
     Never presses Send. Returns True when Gmail confirmed the draft was saved."""
     page = context.new_page()
     try:
-        page.goto(GMAIL + "#all/" + thread_id, timeout=PAGE_TIMEOUT_MS)
+        page.goto(GMAIL + "#all/" + thread_id, timeout=PAGE_TIMEOUT_MS, wait_until=GOTO_WAIT)
         page.wait_for_selector("div.adn", timeout=PAGE_TIMEOUT_MS)
         reply = page.locator("span.ams.bkH").last  # the "Reply" button under the last message
         reply.click()
