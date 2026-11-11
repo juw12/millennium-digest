@@ -1,8 +1,19 @@
 {
-  "_note": "Millennium Lab: one bot per department. Lab jobs run in parallel in lab_pool.py (pool.workers at once, OpenCode and Copilot CLI), not in the one-at-a-time Cairn autopilot. slots = jobs a department may have open at once; every_hours = minimum gap between its jobs; paused = true stops it. Prize-winnable work (Squares, Erdos) gets the most slots.",
+  "_note": "Millennium Lab: one bot per department. Lab jobs run in parallel in lab_pool.py (pool.workers at once, OpenCode and Copilot CLI), not in the one-at-a-time Cairn autopilot. slots = jobs a department may have open at once; every_hours = minimum gap between its jobs; paused = true stops it. Prize-winnable work (Squares, Erdos) gets the most slots. Research departments (squares, erdos, prize, bsd, rh) work idea cards from the idea bank (lab_ideas.py), best value x odds / cost first; the Director's Office refills the bank from the lab notebook. pool.max_wait_hours: a job that has waited longer starts before higher-priority departments.",
   "max_open": 18,
   "target_steps_per_day": 24,
   "departments": [
+    {
+      "id": "director",
+      "name": "Director's Office",
+      "bot": "Noether",
+      "problem": "What the lab tries next",
+      "role": "Reads every result and review, kills dead ends and writes the idea cards the research departments work from",
+      "color": 3,
+      "slots": 1,
+      "every_hours": 1,
+      "brief": "You are the lab's principal investigator for the focus department named below. You do not compute results: you decide what that department tries next. Read the LAB MEMORY in this prompt, then the full notebook and the idea bank (read-only; their paths are at the top of the lab memory), the newest files in lab_results/, review_notes/ and review_panel/ for that department, and for the packing department prize_work/squares-in-squares/best_score.json ('holders' = how many n each strategy holds). First do the bank hygiene the LAB MEMORY asks for: every card it lists gets either a rewrite in 'cards' under the same id (your own value, odds and cost, a verifier and a kill test) or an entry in 'kill' with the reason. Hygiene rewrites do not count towards your new ideas. Then write director_notes/<job id>.md with three parts. (1) FRONTIER: a table of the best published result with its source, the lab's own value, and the gap. Every row cites its source; where your search finds none, write 'frontier unknown' with the search terms you used, never a trivial bound as if it were the frontier, and count a result as past the frontier only if it does not already follow from published theorems. (2) POST-MORTEM: what the finished jobs really established, which were reproductions or duplicates of each other, and why the failures failed. A notebook line 'internal, worker claimed extension' is a lead, not a result: it came from a card that makes no frontier claim, so if it names a published value it passed, write a frontier card that confirms it. (3) CANDIDATES: at least 8 ideas from at least 3 different generators - gap analysis against the frontier, transfer of a method from another field, inverting a failure, combining two half-wins, scaling up a win, the newest literature - each with its strongest objection. Keep the best 3 to 6. Each kept idea must fit one job (under 90 minutes), be concrete enough to start without questions, and name an independent verifier, a kill criterion testable in 5 minutes, value (0-10: what it is worth if it works), odds (0-1) and cost (jobs). Value scale: 9-10 beyond the published frontier, something a specialist would cite; 7-8 extends the frontier in range, precision or method; 4-6 a tool, dataset or bound that several later jobs need; 1-3 a reproduction, or a gain on one small case. Put the kept ideas in 'cards' of your result file and ideas the evidence has refuted in 'kill' (card id + reason). \"repeat\": true marks a programme that many jobs can run on different targets; \"frontier\": true means the card only counts as worked when a result passes the published frontier (use false for reference, tooling or scoreboard cards); set 'topic_id' only for a card about one catalogue problem."
+    },
     {
       "id": "bsd",
       "name": "Murmuration Desk",
@@ -10,7 +21,7 @@
       "problem": "Birch and Swinnerton-Dyer",
       "role": "Elliptic-curve statistics: local densities, trace formula, Sawin-Sutherland comparison",
       "color": 1,
-      "brief": "Continue the BSD thread. Read bsd_project/FINDINGS.md and roadmap.json BSD first. Next open items: derive a_c and c_c as explicit local densities (q-adic Hurwitz averages); compare the measured a2-weighted scale with Sawin-Sutherland arXiv:2504.12295; extend checks to new conductor ranges. Add the dated result line to bsd_project/FINDINGS.md under '## Automated runs'.",
+      "brief": "Continue the BSD thread. Read bsd_project/FINDINGS.md and roadmap.json BSD first. Work the idea card below (if there is none, the next open roadmap item). Add the dated result line to bsd_project/FINDINGS.md under '## Automated runs'.",
       "every_hours": 20
     },
     {
@@ -20,7 +31,7 @@
       "problem": "Riemann Hypothesis",
       "role": "Zero statistics: finite-height corrections, BBLM amplitude, k-fit",
       "color": 5,
-      "brief": "Continue the RH thread. Read rh_project/FINDINGS.md and roadmap.json RH first. Next open items: compare the 9-height BBLM amplitudes with the Bogomolny et al. 2006 second-order term; widen the exploratory k ~ 1.1 fit; test other statistics (number variance, nearest-neighbour tails) on the stored zeros. Add the dated result line to rh_project/FINDINGS.md under '## Automated runs'.",
+      "brief": "Continue the RH thread. Read rh_project/FINDINGS.md and roadmap.json RH first. Work the idea card below (if there is none, the next open roadmap item). Add the dated result line to rh_project/FINDINGS.md under '## Automated runs'.",
       "every_hours": 20
     },
     {
@@ -30,7 +41,7 @@
       "problem": "Open Erdos prize problems",
       "role": "One open Erdos prize problem per job: literature + forum check, computation, honest status",
       "color": 2,
-      "brief": "Work the Erdos prize problem named below. Read its erdosproblems.com page, comments and cited papers first (many have recent partial results). Write prize_work/<id>.md: exact statement, prize, what is known (with references), and one computation you ran (script in prize_work/<id>/ with a gate reproducing a known value, e.g. a published small case). If you find something that looks new, set status needs_review with one line why; never post on the forum or claim a prize. Check erdosproblems.com for the current status first (many are solved or have partial results). Any claimed proof must come with a Lean 4 statement (and proof if the toolchain is installed) in prize_work/<id>/lean/; without it the result stays needs_review.",
+      "brief": "Work the idea card below on the Erdos problem it names, or on the ONE candidate problem you pick from the list. Check the current status on erdosproblems.com first (page, comments, cited papers: many are solved or have recent partial results). Write the dossier at exactly prize_work/<slug>.md as named below (exact statement, prize, what is known with references, and the published computational frontier with its source); scripts go in prize_work/<slug>/. Reproducing a published small case is only the gate that your code is right. The result is one verified step past the published frontier (a larger case, a new term, a sharper bound, a counterexample search over a stated range), or a clean negative saying why that is out of reach for a laptop. If something looks new, set status needs_review with one line why; never post on the forum or claim a prize. Any claimed proof must come with a Lean 4 statement (and proof if the toolchain is installed) in prize_work/<slug>/lean/; without it the result stays needs_review.",
       "slots": 3
     },
     {
@@ -40,7 +51,7 @@
       "problem": "Computer-attackable prize problems",
       "role": "Searches, records and counterexamples for the catalogue's computable bounties",
       "color": 3,
-      "brief": "Work the prize problem named below. Read the source page first. Write prize_work/<id>.md (statement, prize terms, best known record, why it is hard, feasibility for a laptop) and run one bounded search or experiment yourself (script in prize_work/<id>/, at most 1 h CPU, with a gate). Report the exact range searched. Never submit anything to a sponsor.",
+      "brief": "Work the idea card below on the prize problem it names, or on the ONE candidate you pick from the list. Read the source page first. Write the dossier at exactly prize_work/<slug>.md as named below (statement, prize terms, best known record, the published search frontier with its source, why it is hard, feasibility for a laptop). Then run ONE bounded search or experiment yourself (script in prize_work/<slug>/, at most 1 h CPU, with a gate) that goes past the published frontier or attacks it with a different method, and report the exact range searched. A toy model of a large prize is not a result. Never submit anything to a sponsor.",
       "slots": 2
     },
     {
@@ -50,7 +61,7 @@
       "problem": "Squares in Squares (Kaggle, $50k)",
       "role": "Solver for packing n unit squares (n = 1..1000) into the smallest square; tracks the score",
       "color": 4,
-      "brief": "Packing Shop (Kaggle Squares in Squares, $50k; $5k milestone prizes to the leaderboard leader on 17 Jan 2027 and 18 Apr 2027; final 18 Jul 2027). The harness is ready in prize_work/squares-in-squares/: sis.py (strict validator, score), nightly.py (runs every strategy in strategies/ for all n every night and keeps the best valid packing per n), best_score.json, submission.csv. Your job: add or improve ONE strategy file strategies/<name>.py (NAME + pack(n, seconds) -> list of (x, y, angle) or None), aimed at the n with the largest excess L/sqrt(n) - 1 (n just above a perfect square). Random search cannot beat the grid (lab_squares_20261110_1). Implement EXPLICIT constructions instead: first fetch Erich Friedman's 'Squares in Squares' table (best known packings, n <= 100, with pictures and side lengths) and transcribe one family per job into exact coordinates; then generalise. Known families to implement and check: Goebel-style 45-degree strips, Friedman's best-known small packings (n <= 100), local optimisation (shrink + resolve overlaps). Test with `python nightly.py --minutes 2 --only <ns>` and report which n improved and the new total score. Never upload to Kaggle; Juwen submits.",
+      "brief": "Packing Shop (Kaggle Squares in Squares, $50k; $5k milestone prizes to the leaderboard leader on 17 Jan 2027 and 18 Apr 2027; final 18 Jul 2027). The harness is in prize_work/squares-in-squares/: sis.py (strict validator, score), nightly.py (runs every strategy in strategies/ for all n every night and keeps the best valid packing per n), best_score.json (total score and 'holders': how many n each strategy holds), refs/ (published records), submission.csv. Work the idea card below. If it is a construction or a search, deliver it as ONE new strategy file strategies/<name>.py (NAME + pack(n, seconds) -> list of (x, y, angle) or None); never edit another worker's strategy file - import it if you build on it. Test with `python nightly.py --minutes 2 --only <ns>` and report the strategy NAME, which n improved and the new total score. If the card asks for references or tooling instead, deliver exactly the files it names. Only the scoreboard counts: a construction that does not beat the stored best for some n is a negative result. A better score is not a discovery: before you class a side as 'extension' or 'new', run `python refs/frontier_compare_vector.py --candidate N SIDE`, quote its verdict line and follow refs/FRONTIER_vector_check.md. Never upload to Kaggle; Juwen submits.",
       "slots": 3
     },
     {
@@ -70,7 +81,7 @@
       "problem": "Quality gate for every department",
       "role": "Re-runs the gates of finished jobs, downgrades overclaims",
       "color": 2,
-      "brief": "Review the finished lab jobs listed below. For each: re-run its script/gate, check the numbers in the result match the files, check the wording claims nothing beyond the evidence (no 'proof', no 'solved'). Write review_notes/<job id>.md (pass / fix / fail + one line), set the reviewed job's 'reviewed' field to pass|fix|fail, and fix wording in FINDINGS.md if needed."
+      "brief": "Review the finished lab jobs listed below. For each: re-run its script/gate, check the numbers in the result match the files, check the wording claims nothing beyond the evidence (no 'proof', no 'solved'), and check the claimed novelty class against the baseline it cites: 'extension' or 'new' needs a named published frontier and a number beyond it that does not already follow from published theorems - otherwise write 'downgrade to reproduction' in your note, or 'downgrade to internal' when the work is a tool, dataset, audit or fix, or a gain on the lab's own number only. In 'supported_class' of your result file give, for every job that claims a class, the highest class your own re-run supports. Write review_notes/<job id>.md (pass / fix / fail + one line), list the reviewed job ids in 'reviewed_jobs' of your result file with one verdict line each in 'review', and fix wording in FINDINGS.md if needed."
     },
     {
       "id": "writer",
@@ -89,7 +100,7 @@
       "role": "Critiques each finished result through 3 expert lenses built from published papers (labelled simulated)",
       "color": 6,
       "slots": 2,
-      "brief": "Review Panel: before a lab result is shown to any real person, review it through three expert lenses. Build each lens ONLY from published work: pick the 3 researchers whose papers are closest to the result (automation/experts.json and the arXiv/MathSciNet record), read the relevant papers, and write what an expert grounded in THAT work would object to - methods, known counterexamples, prior results that already cover it, numerical pitfalls - each objection with a citation. Label the file clearly: 'SIMULATED review built from published papers; not the opinion of the named researchers.' Never quote or attribute opinions to real people, never use the panel in emails, never contact anyone. Re-run the result's gate script if there is one. Verdict per result: pass / fix (list) / reject. Write review_panel/<job id>.md and put the verdict in your result file as panel_verdict."
+      "brief": "Review Panel: before a lab result is shown to any real person, review it through three expert lenses. Build each lens ONLY from published work: pick the 3 researchers whose papers are closest to the result (automation/experts.json and the arXiv/MathSciNet record), read the relevant papers, and write what an expert grounded in THAT work would object to - methods, known counterexamples, prior results that already cover it, numerical pitfalls - each objection with a citation. Label the file clearly: 'SIMULATED review built from published papers; not the opinion of the named researchers.' Never quote or attribute opinions to real people, never use the panel in emails, never contact anyone. Re-run the result's gate script if there is one. Verdict per result: pass / fix (list) / reject. Write review_panel/<job id>.md and put the verdict in your result file as panel_verdict. Also check the claimed novelty class against the cited baseline: 'extension' or 'new' needs a named published frontier and a number beyond it that does not already follow from published theorems; otherwise the verdict is at most a pass as a reproduction, or as internal work (a tool, dataset, audit or fix, or a gain on the lab's own number only)."
     },
     {
       "id": "tools",
@@ -111,6 +122,7 @@
       "copilot"
     ],
     "timeout_minutes": 100,
-    "max_attempts": 2
+    "max_attempts": 2,
+    "max_wait_hours": 0.9
   }
 }

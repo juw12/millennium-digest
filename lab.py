@@ -1,9 +1,10 @@
 """Millennium Lab: a department of research bots that never sits idle.
 
-ensure_jobs()   Every department in lab_departments.json keeps exactly one job open in research_queue.json.
-                As soon as a department's job is done (or needs review), the next one is queued, so the lab
-                works continuously instead of one step a day. ai_bridge.py hands the jobs to the agent via the
-                Cairn autopilot queue; ai_watchdog.py calls this every 30 minutes and falls back to Copilot.
+ensure_jobs()   Every department in lab_departments.json keeps its slots filled in research_queue.json: as soon
+                as a job is done (or needs review) the next one is queued. Research departments work idea cards
+                from the idea bank (lab_ideas.py), best value x odds / cost first; the Director's Office refills
+                the bank from the lab notebook. lab_pool.py runs the jobs in parallel and calls this every tick;
+                ai_watchdog.py calls it every 30 minutes as well.
 write_state()   lab/lab_state.js for the live 3D lab page (lab/index.html) and the dashboard: every bot's
                 current job and agent status, steps per day, and the milestones in lab_targets.json.
 
@@ -18,6 +19,10 @@ import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
+if str(HERE) not in sys.path:  # lab.py is also imported by scripts that run from other folders
+    sys.path.insert(0, str(HERE))
+import lab_ideas  # noqa: E402
+
 ROOT = HERE.parent
 QUEUE = ROOT / "research_queue.json"
 DEPARTMENTS = HERE / "lab_departments.json"
@@ -29,12 +34,23 @@ SQUARES_SCORE = PRIZE_WORK / "squares-in-squares" / "best_score.json"
 STATE_JS = HERE / "lab" / "lab_state.js"
 AGENT_JOBS = Path(r"C:\Users\juwen_lie\Desktop\automation\agent\precedent-agent\state\jobs.json")
 OPEN = ("needs_ai", "running")
-RULES = (
-    " Finish ONE concrete, verifiable step (a script with a gate and its numbers, or a derivation checked "
-    "numerically) - not a plan. Empirical/heuristic only: never claim a proof or a solution, never submit, post or "
-    "email anything. When done, set this job's status to done (or needs_review if it looks like more than it is), "
-    "'finished' to the ISO time, and 'result' to 1-3 sentences with the numbers. Commit in the research repo."
+ID_DATE = "%y%m%d"  # six digits: the model gateway shows workers a longer digit run (20261111) as a hash
+SERVICE_RULES = (
+    " Finish ONE concrete deliverable - not a plan. Never claim a proof or a solution; never submit, post or email "
+    "anything. Commit your own files in the research repo. Your result goes in the result file the pool names, "
+    "never in research_queue.json."
 )
+RESEARCH_RULES = (
+    " Finish ONE concrete, verifiable step beyond what is already known (a script with a gate and its numbers, or "
+    "a derivation checked numerically) - not a plan. Reproducing a published value is only the gate that your code "
+    "is right; it is not the result. Empirical/heuristic only: never claim a proof or a solution; never submit, "
+    "post or email anything. Commit your own files in the research repo. Your result goes in the result file the "
+    "pool names, never in research_queue.json."
+)
+WANTED = {  # which catalogue problems a department may take
+    "erdos": lambda item: item.get("family") == "erdos",
+    "prize": lambda item: item.get("computable") and item.get("family") != "erdos" and item["id"] != "KAGGLE-SQ",
+}
 
 
 def _read(path, default=None):
@@ -62,16 +78,106 @@ def _done_dossiers():
     return {path.stem for path in PRIZE_WORK.glob("*.md")} if PRIZE_WORK.exists() else set()
 
 
+def _catalog():
+    return (_read(CATALOG, {}) or {}).get("items", [])
+
+
+def _done_topics(jobs):
+    """Catalogue problems the lab is finished with: a job has a result, or two jobs failed on it."""
+    done, failed = set(), {}
+    for job in jobs:
+        topic = job.get("topic_id")
+        if topic and job.get("status") in ("done", "needs_review"):
+            done.add(topic)
+        elif topic and job.get("status") == "failed":
+            failed[topic] = failed.get(topic, 0) + 1
+    return done | {topic for topic, count in failed.items() if count >= 2}
+
+
 def _taken_topics(jobs):
-    return {job.get("topic_id") for job in jobs if job.get("topic_id") and job.get("status") in OPEN}
+    """Problems an open job works on, or may still pick from its candidate list."""
+    taken = set()
+    for job in jobs:
+        if job.get("status") in OPEN:
+            taken.update(job.get("candidates") or [])
+            if job.get("topic_id"):
+                taken.add(job["topic_id"])
+    return taken
 
 
-def _next_catalog_item(jobs, want):
-    catalog = (_read(CATALOG, {}) or {}).get("items", [])
-    done, taken = _done_dossiers(), _taken_topics(jobs)
-    pool = [item for item in catalog if want(item) and _slug(item["id"]) not in done and item["id"] not in taken]
-    pool.sort(key=lambda item: (-item.get("reward_usd", 0), item["id"]))
+def _open_topics(jobs, want, realistic_first=False):
+    """Catalogue problems nobody has worked yet, biggest reward first. realistic_first puts rewards up to
+    50,000 USD ahead of the headline prizes, which a one-hour job cannot move."""
+    dossiers, done, taken = _done_dossiers(), _done_topics(jobs), _taken_topics(jobs)
+    pool = [item for item in _catalog() if want(item) and _slug(item["id"]) not in dossiers
+            and item["id"] not in done and item["id"] not in taken]
+    reward = lambda item: item.get("reward_usd") or 0  # noqa: E731
+    pool.sort(key=lambda item: (realistic_first and reward(item) > 50000, -reward(item), item["id"]))
+    return pool
+
+
+def _next_catalog_item(jobs, want, realistic_first=False):
+    pool = _open_topics(jobs, want, realistic_first)
     return pool[0] if pool else None
+
+
+def _slate(pool, size=6):
+    """Candidate problems for a programme card: computable ones first, then a spread over the rest of the list.
+    Problems that already have an idea card of their own are left to that card."""
+    carded = {card.get("topic_id") for card in lab_ideas.ranked(statuses=("open", "claimed", "won"))}
+    pool = [item for item in pool if item["id"] not in carded]
+    chosen = [item for item in pool if item.get("computable")][:size]
+    rest = [item for item in pool if item not in chosen]
+    need = size - len(chosen)
+    if need <= 0 or len(rest) <= need:
+        return chosen + rest[:max(0, need)]
+    if need == 1:
+        return chosen + rest[:1]
+    return chosen + [rest[round(index * (len(rest) - 1) / (need - 1))] for index in range(need)]
+
+
+def _topic_text(item):
+    slug = _slug(item["id"])
+    return (f" Problem: {item['id']} {item['title']} ({item.get('reward', '')}). Statement: "
+            f"{str(item.get('statement', ''))[:700]} Source: {item['url']} Dossier: prize_work/{slug}.md (exactly "
+            f"this name); scripts in prize_work/{slug}/.")
+
+
+def _next_card(dept_id, jobs):
+    """(card, wait) - see lab_ideas.next_card. wait: only ideas the Director has not reviewed are left and one of
+    the department's jobs already works on one."""
+    if dept_id not in lab_ideas.CARD_DEPTS:
+        return None, False
+    open_jobs = [job for job in jobs if job.get("status") in OPEN]
+    held = {job.get("idea_id") for job in open_jobs}
+    working = {job.get("idea_id") for job in open_jobs if job_dept(job) == dept_id}
+    return lab_ideas.next_card(dept_id, held, _taken_topics(jobs), working)
+
+
+def _waiting_for(dept_id, jobs):
+    """Finished jobs the Referee ("review") or the Review Panel ("panel") still has to check, most important
+    last: claimed progress and needs_review results come after plain reproductions. A job that an open job of the
+    same department already reviews is left out, so two reviewers never get the same result."""
+    if dept_id == "review":
+        skip, flag = ("review", "panel", "director"), "reviewed"  # a simulated review is not a result to re-run
+    else:
+        skip, flag = ("panel", "review", "tools", "scout", "director"), "panel_reviewed"
+    busy = {job_id for job in jobs if job.get("dept") == dept_id and job.get("status") in OPEN
+            for job_id in job.get("reviews") or []}
+    waiting = [job for job in jobs if job.get("dept") and job.get("dept") not in skip
+               and job.get("status") in ("done", "needs_review") and not job.get(flag) and job["id"] not in busy]
+    waiting.sort(key=lambda job: (job.get("novelty") in lab_ideas.PROGRESS, job.get("status") == "needs_review"))
+    return waiting
+
+
+def _review_line(job, size):
+    claim = ""
+    if job.get("novelty"):
+        word = job["novelty"]
+        if job.get("claimed_novelty"):  # the lab or the Referee lowered the class: show both words
+            word = f"{job['claimed_novelty']}, recorded as {job['novelty']}"
+        claim = f" [claims {word}; baseline: {str(job.get('baseline') or 'none given')[:160]}]"
+    return f"{job['id']}{claim} - {str(job.get('result', ''))[:size]}"
 
 
 def squares_baseline():
@@ -84,88 +190,118 @@ def _last_result(jobs, dept):
     return finished[-1].get("result", "") if finished else ""
 
 
-def plan_job(dept, jobs, today, number):
-    """Title, extra instructions and fields for the department's next job (None = nothing to do now)."""
-    roadmap = _read(ROADMAP, {}) or {}
-    previous = _last_result(jobs, dept["id"])
+def plan_job(dept, jobs, today, number, config=None):
+    """Title, instructions and fields for the department's next job (None = nothing to do now). A research
+    department works its best open idea card; without one it falls back to its standing brief. Only one of its
+    jobs at a time may work an idea the Director has not reviewed."""
+    dept_id = dept["id"]
+    job_id = f"lab_{dept_id}_{today:{ID_DATE}}_{number}"
+    card, wait = _next_card(dept_id, jobs)
+    if wait:
+        return None  # an empty slot beats a second job on an idea the Director has not reviewed
+    previous = "" if card else _last_result(jobs, dept_id)
     carry = f" Your previous result: {previous[:400]}" if previous else ""
-    extra = {}
-    if dept["id"] in ("bsd", "rh"):
-        key = dept["id"].upper()
-        title = f"{dept['name']}: next step on {dept['problem']}"
-        topic = f" Roadmap: {roadmap.get(key, {}).get('next', '')}{carry}"
-    elif dept["id"] == "erdos":
-        item = _next_catalog_item(jobs, lambda i: i.get("family") == "erdos")
-        if not item:
-            return None
-        title = f"{dept['name']}: {item['title']} ({item['reward']})"
-        topic = f" Problem: {item['id']} {item['title']}. Statement: {item.get('statement', '')} Source: {item['url']} (dossier id: {_slug(item['id'])})"
-        extra = {"topic_id": item["id"], "topic_url": item["url"]}
-    elif dept["id"] == "prize":
-        item = _next_catalog_item(
-            jobs, lambda i: i.get("computable") and i.get("family") != "erdos" and i["id"] != "KAGGLE-SQ")
-        if not item:
-            return None
-        title = f"{dept['name']}: {item['title']} ({item['reward']})"
-        topic = f" Problem: {item['id']} {item['title']}. {item.get('statement', '')} Source: {item['url']} (dossier id: {_slug(item['id'])})"
-        extra = {"topic_id": item["id"], "topic_url": item["url"]}
-    elif dept["id"] == "squares":
+    extra = {"idea_id": card["id"]} if card else {}
+    title = f"{dept['name']}: {card['title']}" if card else None
+    if dept_id in ("bsd", "rh"):
+        roadmap = _read(ROADMAP, {}) or {}
+        title = title or f"{dept['name']}: next step on {dept['problem']}"
+        topic = f" Roadmap: {roadmap.get(dept_id.upper(), {}).get('next', '')}{carry}"
+    elif dept_id in WANTED:  # erdos, prize: one catalogue problem per job
+        want, realistic = WANTED[dept_id], dept_id == "prize"
+        item = None
+        if card and card.get("topic_id"):
+            item = next((entry for entry in _catalog() if entry["id"] == card["topic_id"]), None)
+        if card and item is None and card.get("repeat"):  # a programme: the worker picks its target from a slate
+            slate = _slate(_open_topics(jobs, want, realistic))
+            if not slate:
+                return None
+            topic = (" Candidate problems - pick the ONE where this idea has the best chance and report its id as "
+                     "'topic_id': " + " | ".join(
+                         f"{entry['id']} {entry['title']} ({entry.get('reward', '')}) {entry['url']}; dossier "
+                         f"prize_work/{_slug(entry['id'])}.md; {str(entry.get('statement', ''))[:150]}"
+                         for entry in slate))
+            extra["candidates"] = [entry["id"] for entry in slate]
+        elif card and item is None:  # the card names its own target
+            topic = ""
+        else:
+            item = item or _next_catalog_item(jobs, want, realistic)
+            if not item:
+                return None
+            title = title or f"{dept['name']}: {item['title']} ({item['reward']})"
+            topic = _topic_text(item)
+            extra.update({"topic_id": item["id"], "topic_url": item["url"]})
+    elif dept_id == "squares":
         best = _read(SQUARES_SCORE, {}) or {}
         state = f"current best valid score {best['score']:.4f}" if best.get("valid") else "no valid solver yet"
-        title = f"{dept['name']}: improve the Squares in Squares score ({state})"
+        title = title or f"{dept['name']}: improve the Squares in Squares score ({state})"
         topic = f" Trivial-grid baseline score: {squares_baseline():.4f}. Status: {state}.{carry}"
-    elif dept["id"] == "scout":
+    elif dept_id == "director":
+        departments = (config or {}).get("departments", [])
+        earlier = [job for job in jobs if job.get("dept") == "director"]
+        target, open_cards = lab_ideas.director_target(config or {}, earlier[-1].get("focus_dept") if earlier else None)
+        if not target:
+            return None
+        name = next((entry["name"] for entry in departments if entry["id"] == target), target)
+        title = f"{dept['name']}: new ideas for {name} ({open_cards} open cards)"
+        topic = f" Focus department: {target} ({name}). Notes file: director_notes/{job_id}.md."
+        extra = {"focus_dept": target}
+    elif dept_id == "scout":
         digests = sorted((HERE / "digests").glob("digest_*.md"))
         latest = digests[-1].name if digests else "none yet"
         title = f"{dept['name']}: brief the newest papers on NS, Yang-Mills, P vs NP, Hodge ({latest})"
         topic = f" Latest digest: automation/digests/{latest}. Note file: scout_notes/{today.isoformat()}.md."
-    elif dept["id"] == "review":
-        waiting = [job for job in jobs if job.get("dept") and job.get("dept") != "review"
-                   and job.get("status") in ("done", "needs_review") and not job.get("reviewed")][-3:]
+    elif dept_id == "review":
+        waiting = _waiting_for("review", jobs)[-3:]
         if not waiting:
             return None
         title = f"{dept['name']}: review {', '.join(job['id'] for job in waiting)}"
-        topic = " Jobs to review: " + "; ".join(f"{job['id']} - {job.get('result', '')[:200]}" for job in waiting)
+        topic = (" Jobs to review: " + "; ".join(_review_line(job, 200) for job in waiting)
+                 + " List them in 'reviewed_jobs' of your result file.")
         extra = {"reviews": [job["id"] for job in waiting]}
-    elif dept["id"] == "panel":
-        waiting = [job for job in jobs if job.get("dept") not in (None, "panel", "review", "tools", "scout")
-                   and job.get("status") in ("done", "needs_review") and not job.get("panel_reviewed")][-2:]
+    elif dept_id == "panel":
+        waiting = _waiting_for("panel", jobs)[-2:]
         if not waiting:
             return None
         title = f"{dept['name']}: simulated expert review of {', '.join(job['id'] for job in waiting)}"
-        topic = (" Results to review: " + "; ".join(f"{job['id']} - {job.get('result', '')[:240]}" for job in waiting)
+        topic = (" Results to review: " + "; ".join(_review_line(job, 240) for job in waiting)
                  + " Write review_panel/<job id>.md for each and list them in 'reviewed_jobs' of your result file.")
         extra = {"reviews": [job["id"] for job in waiting]}
-    elif dept["id"] == "tools":
+    elif dept_id == "tools":
         title = f"{dept['name']}: {dept.get('task', 'keep the lab tooling working')}"
         topic = carry
-    elif dept["id"] == "writer":
+    elif dept_id == "writer":
         title = f"{dept['name']}: advance the first-month package (BSD note, RH note, prize index)"
         topic = f" Package status: {first_month_status()['text']}.{carry}"
     else:
         title = f"{dept['name']}: next step"
         topic = carry
     return {
-        "id": f"lab_{dept['id']}_{today:%Y%m%d}_{number}",
+        "id": job_id,
         "title": title,
-        "project": dept["id"],
-        "dept": dept["id"],
+        "project": dept_id,
+        "dept": dept_id,
         "status": "needs_ai",
         "not_before": today.isoformat(),
         "queued": dt.datetime.now().isoformat(timespec="seconds"),
-        "why": dept["brief"] + topic + RULES,
+        "why": dept["brief"] + topic + (RESEARCH_RULES if dept_id in lab_ideas.CARD_DEPTS else SERVICE_RULES),
         **extra,
     }
 
 
 def ensure_jobs(today=None, dry_run=False):
-    """Queue one job for every department that has none open. Returns the new job ids."""
+    """Queue the next job for every department that has a free slot. Returns the new job ids."""
     today = today or dt.date.today()
     config = _read(DEPARTMENTS, {}) or {}
     queue = _read(QUEUE)
     if not queue or not config:
         return []
     jobs = queue.setdefault("jobs", [])
+    if not dry_run:
+        try:
+            lab_ideas.reconcile(jobs)  # cards whose job is gone go back to the bank
+        except (OSError, ValueError):
+            pass  # an unreadable idea bank never stops the lab: departments fall back to their standing briefs
     open_lab = [job for job in jobs if job_dept(job) and job.get("status") in OPEN]
     room = config.get("max_open", 8) - len(open_lab)
     created = []
@@ -180,8 +316,9 @@ def ensure_jobs(today=None, dry_run=False):
             if (now - dt.datetime.fromisoformat(last_queued[:19])).total_seconds() < dept["every_hours"] * 3600:
                 continue
         while room > 0 and open_mine < dept.get("slots", 1):
-            number = 1 + sum(1 for job in jobs if job.get("id", "").startswith(f"lab_{dept['id']}_{today:%Y%m%d}_"))
-            job = plan_job(dept, jobs, today, number)
+            prefix = f"lab_{dept['id']}_{today:{ID_DATE}}_"
+            number = 1 + sum(1 for job in jobs if job.get("id", "").startswith(prefix))
+            job = plan_job(dept, jobs, today, number, config)
             if not job:
                 break
             created.append(job)
@@ -189,7 +326,19 @@ def ensure_jobs(today=None, dry_run=False):
             room -= 1
             open_mine += 1
     if created and not dry_run:
-        QUEUE.write_text(json.dumps(queue, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        fresh = _read(QUEUE) or queue  # add to the file as it is now: another script may have written meanwhile
+        known = {job.get("id") for job in fresh.setdefault("jobs", [])}
+        created = [job for job in created if job["id"] not in known]
+        fresh["jobs"].extend(created)
+        temp = QUEUE.with_name(QUEUE.name + ".lab.tmp")
+        temp.write_text(json.dumps(fresh, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        temp.replace(QUEUE)
+        for job in created:
+            try:
+                if job.get("idea_id"):
+                    lab_ideas.claim(job["idea_id"], job["id"])
+            except (OSError, ValueError):
+                pass  # reconcile() and the open-job check in _next_card keep the card from being issued twice
     return [job["id"] for job in created]
 
 
@@ -332,6 +481,7 @@ def build_state(today=None):
         "next_milestone": next_due,
         "not_on_timeline": targets.get("not_on_timeline", ""),
         "squares_baseline": round(squares_baseline(), 4),
+        "ideas": lab_ideas.summary(),
     }
 
 
@@ -353,6 +503,7 @@ def main():
         job = bot["job"]["title"][:70] if bot["job"] else "-"
         print(f"  {bot['bot']:9} {bot['name']:17} {bot['mood']:8} {job}")
     print(f"steps today {state['steps_today']} / target {state['target_per_day']}")
+    print(f"idea cards {state['ideas'].get('cards', {})}, notebook lines {state['ideas'].get('notes', 0)}")
     for milestone in state["milestones"]:
         print(f"  {milestone['id']} {milestone['due']} {'DONE' if milestone['done'] else f'{milestone['progress']:.0%}'}  {milestone['note']}")
 
