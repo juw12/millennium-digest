@@ -20,6 +20,8 @@ WATCHED_INPUTS = [
     "roadmap.json",
     "state.json",
     "ui_state.json",
+    "pool_mode.json",
+    "logs/pool_state.json",
 ]
 
 TOPIC_HEADER = re.compile(r"^## (.+?) \((\d+) new\)\s*$")

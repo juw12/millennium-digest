@@ -103,12 +103,39 @@ def write_json(path, data):
 def settings():
     pool = (read_json(DEPARTMENTS, {}) or {}).get("pool", {})
     return {
-        "workers": int(pool.get("workers", 3)),
+        "workers": scheduled_workers(pool),
         "engines": pool.get("engines", ["opencode", "copilot"]),
         "timeout_minutes": int(pool.get("timeout_minutes", 100)),
         "max_attempts": int(pool.get("max_attempts", 2)),
         "max_wait_hours": float(pool.get("max_wait_hours", 3)),
     }
+
+
+def in_work_hours(work_hours, now=None):
+    """True inside pool.work_hours: {"days": [0..6, Monday = 0], "start": "HH:MM", "end": "HH:MM"} (local time)."""
+    if not work_hours:
+        return False
+    now = now or dt.datetime.now()
+    days = work_hours.get("days", [0, 1, 2, 3, 4])
+    start = dt.datetime.strptime(work_hours.get("start", "08:00"), "%H:%M").time()
+    end = dt.datetime.strptime(work_hours.get("end", "17:00"), "%H:%M").time()
+    return now.weekday() in days and start <= now.time() < end
+
+
+def scheduled_workers(pool, now=None):
+    """pool.workers normally; pool.work_hours.workers (fewer) during work hours, so the PC stays usable.
+    The dashboard's Auto / Light / Full button (pool_mode.py, pool_mode.json) can override the schedule."""
+    try:
+        import pool_mode
+
+        return pool_mode.scheduled_workers(pool, now)
+    except Exception as error:  # never let the dashboard helper stop the pool
+        log(f"pool_mode unavailable, using the plain schedule: {error!r}")
+    workers = int(pool.get("workers", 3))
+    work_hours = pool.get("work_hours")
+    if in_work_hours(work_hours, now):
+        return min(workers, int(work_hours.get("workers", workers)))
+    return workers
 
 
 # ------------------------------------------------------------------ processes (Windows)

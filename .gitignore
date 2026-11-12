@@ -40,3 +40,6 @@ logs/
 # live lab state (lab.py writes it every 30 min from the local job queue)
 lab/lab_state.js
 lab/lab_state.tmp
+
+# dashboard Lab pool button choice (runtime state)
+pool_mode.json

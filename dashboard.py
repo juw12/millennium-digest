@@ -25,10 +25,12 @@ import dashboard_extras as extras
 import dashboard_results as results_ui
 import dashboard_interactive
 import history as activity_history
+import pool_mode as _pool_mode
 from pathlib import Path
 
 # The desktop app reloads dashboard.py on every button press; reload the UI helpers with it.
 ui = importlib.reload(dashboard_interactive)
+pool_ui = importlib.reload(_pool_mode)
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
@@ -518,6 +520,7 @@ def build():
     nav_html = ui.section_nav([
         ("needs", "Needs you", len(actions) or ""),
         ("daily", "Daily", ""),
+        ("pool", "Lab pool", ""),
         ("progress", "Problems", ""),
         ("papers", "Papers", ""),  # red badges are only for things that need you
         ("outreach", "Outreach", ""),
@@ -529,6 +532,14 @@ def build():
         ("activity", "Activity", ""),
     ])
     status_html = ui.status_chips()
+    try:
+        pool_data = pool_ui.snapshot()
+        pool_chip = pool_ui.header_chip(pool_data)
+        pool_html = pool_ui.section_html(data=pool_data)
+    except Exception as error:  # the pool card must never break the page
+        pool_chip = ""
+        pool_html = (f'<section class="card anchor" id="pool"><h2>Lab pool</h2>'
+                     f'<p class="empty">Pool data unavailable: {html.escape(repr(error))}</p></section>')
 
     page = f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
@@ -643,7 +654,7 @@ footer {{ max-width:1180px; margin:0 auto; padding:0 24px 30px; color:var(--mute
 <body data-built="{built_stamp}">
 <header class="top"><div class="top-in">
   <div class="brand"><div class="logo" aria-label="Millennium Dashboard logo"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="34" height="34"> <defs> <linearGradient id="mlg-head" x1="0" y1="0" x2="1" y2="1"> <stop offset="0" stop-color="#0f766e"/> <stop offset="1" stop-color="#06b6d4"/> </linearGradient> </defs> <rect x="0" y="0" width="64" height="64" rx="18" fill="url(#mlg-head)"/> <line x1="11" y1="32" x2="53" y2="32" stroke="#ffffff" stroke-opacity="0.32" stroke-width="2.6" stroke-linecap="round"/> <path d="M13 32 C 19 13, 27 13, 32 32 S 45 51, 51 32" fill="none" stroke="#ffffff" stroke-width="5.2" stroke-linecap="round"/> <circle cx="32" cy="32" r="5" fill="#fde047"/> </svg></div><div><h1>Millennium Dashboard</h1><p>Research monitor &middot; private, stays on this PC</p></div></div>
-  <div class="top-meta">{task_chip}{status_html}{version_chip}<span title="Page rebuilt at this time">Updated {built_text}</span><span>Next run {html.escape(next_text)}</span>
+  <div class="top-meta">{task_chip}{pool_chip}{status_html}{version_chip}<span title="Page rebuilt at this time">Updated {built_text}</span><span>Next run {html.escape(next_text)}</span>
     <a href="../lab/index.html" title="Live 3D view of the eight bot researchers">3D Lab</a><a href="{PUBLIC_PAGE}">Public page</a><a href="{REPO}">Code</a><a class="btn ghost" href="millennium://refresh">Refresh</a></div>
 </div></header>
 {nav_html}
@@ -655,6 +666,8 @@ footer {{ max-width:1180px; margin:0 auto; padding:0 24px 30px; color:var(--mute
     {todo_html}</section>
 
   {daily_progress.section_html()}
+
+  {pool_html}
 
   {progress_html}
 

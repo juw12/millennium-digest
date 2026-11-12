@@ -401,10 +401,28 @@ def _dispatch(action, argument, in_app=False):
         return mark_replied(argument)
     if action == "seen":
         return mark_seen(argument)
+    if action == "poolmode":
+        return set_pool_mode(argument)
     if action == "refresh":
         return True
     message(f"Unknown action: {action}", MB_OK | MB_ICONWARN)
     return False
+
+
+def set_pool_mode(mode):
+    """Lab pool button: auto / light / full. Saves the choice and runs a pool tick so it applies at once."""
+    import importlib
+    import pool_mode
+
+    pool_mode = importlib.reload(pool_mode)
+    try:
+        summary = pool_mode.set_mode(mode)
+    except ValueError as error:
+        message(str(error), MB_OK | MB_ICONWARN)
+        return False
+    pool_mode.apply_now()
+    history.record("button", summary)
+    return True
 
 
 def main():
