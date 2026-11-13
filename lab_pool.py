@@ -54,6 +54,9 @@ RESULTS = ROOT / "lab_results"
 LOG_DIR = HERE / "logs"
 STATE = LOG_DIR / "pool_state.json"
 DEPARTMENTS = HERE / "lab_departments.json"
+# Model for every OpenCode worker (pool.opencode_model overrides it). Chosen 2026-11-13 by a head-to-head on
+# graded lab-style tasks; without -m, `opencode run` used OpenCode's chat default (pegaai/Pega-Chat).
+DEFAULT_OPENCODE_MODEL = "pegaai/Pega-Coding"
 COPILOT = Path(os.path.expandvars(r"%LOCALAPPDATA%\GitHubCopilotCLI\copilot.exe"))
 OPEN = ("needs_ai", "running")
 # The Referee comes right after the Director: it holds one slot, and a claim nobody re-ran is what every later
@@ -105,10 +108,20 @@ def settings():
     return {
         "workers": scheduled_workers(pool),
         "engines": pool.get("engines", ["opencode", "copilot"]),
+        "opencode_model": pool.get("opencode_model", DEFAULT_OPENCODE_MODEL),
         "timeout_minutes": int(pool.get("timeout_minutes", 100)),
         "max_attempts": int(pool.get("max_attempts", 2)),
         "max_wait_hours": float(pool.get("max_wait_hours", 3)),
     }
+
+
+def opencode_run(title, prompt):
+    """The `opencode run` command line for one unattended prompt, pinned to the pool's model
+    (pool.opencode_model in lab_departments.json; "" falls back to OpenCode's own default model)."""
+    exe = shutil.which("opencode") or "opencode"
+    model = settings()["opencode_model"]
+    pinned = ["-m", model] if model else []
+    return [exe, "run", "--standalone", "--auto", *pinned, "--format", "json", "--title", title, prompt]
 
 
 def in_work_hours(work_hours, now=None):
@@ -300,11 +313,9 @@ def model_check():
     """Ask the model one small question and wait up to MODEL_CHECK_MINUTES for the answer. An answer without an
     error deletes the flag file, and the next tick starts OpenCode jobs again."""
     answer_path = LOG_DIR / "model_check.log"
-    exe = shutil.which("opencode") or "opencode"
     try:
         with open(answer_path, "w", encoding="utf-8") as handle:
-            check = subprocess.Popen([exe, "run", "--standalone", "--auto", "--format", "json", "--title",
-                                      "Lab: connection check", MODEL_QUESTION], cwd=ROOT, stdout=handle,
+            check = subprocess.Popen(opencode_run("Lab: connection check", MODEL_QUESTION), cwd=ROOT, stdout=handle,
                                      stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL, env=opencode_environment(),
                                      creationflags=0x08000000)
             try:
@@ -488,8 +499,7 @@ def command(engine, job, earlier=()):
     prompt = prompt_for(job, earlier)
     if engine == "copilot":
         return [str(COPILOT), "-p", prompt, "--allow-all", "--no-ask-user", "--add-dir", str(ROOT)]
-    exe = shutil.which("opencode") or "opencode"
-    return [exe, "run", "--standalone", "--auto", "--format", "json", "--title", f"Lab: {job['id']}", prompt]
+    return opencode_run(f"Lab: {job['id']}", prompt)
 
 
 def start(job, engine, state):
