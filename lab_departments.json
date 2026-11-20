@@ -147,5 +147,12 @@
     "archive_days": 30,
     "archive_mb": 20,
     "cache_cold_days": 3
+  },
+  "publish": {
+    "_note": "publish_notes.py: a reviewed note in outbox/public goes to the public notes repo after cooloff_days, at most max_per_run a day. enabled false stops it. A private hold list lives in outbox/public_decisions.json.",
+    "enabled": true,
+    "repo": "../../open-problems-lab",
+    "cooloff_days": 3,
+    "max_per_run": 3
   }
 }
