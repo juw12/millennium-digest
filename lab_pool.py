@@ -112,7 +112,34 @@ def settings():
         "timeout_minutes": int(pool.get("timeout_minutes", 100)),
         "max_attempts": int(pool.get("max_attempts", 2)),
         "max_wait_hours": float(pool.get("max_wait_hours", 3)),
+        "opencode_first": behind_token_target(pool),
     }
+
+
+def behind_token_target(pool):
+    """True on a day that is expected to miss pool.daily_token_target (token_pace.py): new jobs then start on
+    OpenCode at any hour. (The extra weekday job slots of the catch-up are pool_mode.scheduled_workers' part.)"""
+    if not pool.get("daily_token_target"):
+        return False
+    try:
+        import token_pace
+
+        return token_pace.behind(pool)
+    except Exception as error:
+        log(f"token pace unavailable: {error!r}")
+        return False
+
+
+def drive_has_room():
+    """False when the lab's drive is nearly full (disk_guard.py, disk_guard.stop_free_gb): a job started now
+    would only fail with "No space left on device"."""
+    try:
+        import disk_guard
+
+        return disk_guard.pool_may_start()
+    except Exception as error:
+        log(f"disk guard unavailable: {error!r}")
+        return True
 
 
 def opencode_run(title, prompt):
@@ -793,6 +820,9 @@ def fill():
     this tick is filled by a job that was queued in this tick. A worker that has delivered its result but has
     not exited yet does not hold a slot (at most two such at a time, so the PC is never far over its limit)."""
     config = settings()
+    if not drive_has_room():
+        log("drive nearly full: no new jobs until the disk guard has freed space")
+        return
     model_ok = model_reachable()  # asked before the queue is read: the check can take a minute
     queue = read_json(QUEUE, None)
     if not queue:
@@ -817,6 +847,8 @@ def fill():
         engines = config["engines"]
         if history:  # a retry always switches engine
             engine = next((e for e in engines if e != history[-1]["engine"]), engines[0])
+        elif config["opencode_first"] and "opencode" in engines:
+            engine = "opencode"  # behind the daily token target: Copilot only takes retries
         else:
             engine = engines[slot % len(engines)]
         if engine == "copilot" and not copilot_usable():

@@ -121,9 +121,34 @@ def workers_at(pool, when, override=None, forced=None):
     return full, "full", "schedule"
 
 
-def scheduled_workers(pool, now=None):
-    """Worker limit lab_pool.py uses right now (schedule plus any dashboard override)."""
+def catchup_workers(pool):
+    """Jobs during the weekday Light schedule on a day that is behind its token target (token_pace.py)."""
+    work_hours = pool.get("work_hours") or {}
+    return max(light_workers(pool), min(full_workers(pool), int(work_hours.get("catchup_workers", 5))))
+
+
+def catching_up(pool, now=None):
+    """True when the Auto schedule is in Light and the day is behind pool.daily_token_target.
+    A mode chosen by hand on the dashboard is never overruled."""
     now = now or dt.datetime.now()
+    if not pool.get("daily_token_target"):
+        return False
+    _, mode, source = workers_at(pool, now, load_override(now))
+    if mode != "light" or source != "schedule":
+        return False
+    try:
+        import token_pace
+
+        return token_pace.behind(pool, now)
+    except Exception:  # the token count must never stop the pool
+        return False
+
+
+def scheduled_workers(pool, now=None):
+    """Worker limit lab_pool.py uses right now (schedule plus any dashboard override, plus the catch-up)."""
+    now = now or dt.datetime.now()
+    if catching_up(pool, now):
+        return catchup_workers(pool)
     return workers_at(pool, now, load_override(now))[0]
 
 
@@ -281,6 +306,15 @@ def snapshot(now=None):
     pool = pool_config()
     override = load_override(now)
     workers, mode, source = workers_at(pool, now, override)
+    catchup = catching_up(pool, now)
+    if catchup:
+        workers = catchup_workers(pool)
+    try:
+        import token_pace
+
+        tokens = token_pace.status(pool, now) if pool.get("daily_token_target") else None
+    except Exception:
+        tokens = None
     stats = log_stats(now)
     rate = stats["rate"]
     midnight = dt.datetime.combine(now.date() + dt.timedelta(days=1), dt.time())
@@ -306,6 +340,8 @@ def snapshot(now=None):
         "workers": workers,
         "mode": mode,
         "source": source,
+        "catchup": catchup,
+        "tokens": tokens,
         "override": override,
         "next_switch": next_switch(pool, now),
         "light": light_workers(pool),
@@ -402,6 +438,13 @@ def section_html(now=None, data=None):
          f"+{projection['current']['rest_today']:.0f} more by midnight", "neutral"),
         ("Lab RAM now", memory_text, "OpenCode worker processes", "neutral"),
     ]
+    tokens = data.get("tokens")
+    if tokens and tokens.get("tokens") is not None:
+        kpis.append((
+            "OpenCode tokens today", f"{tokens['tokens'] / 1e9:.2f} B",
+            f"target {tokens['target'] / 1e9:.1f} B &middot; expected {tokens['expected'] / 1e9:.1f} B by midnight"
+            + (f" &middot; catching up with {data['workers']} jobs, OpenCode first" if data.get("catchup") else ""),
+            "good" if tokens["tokens"] >= tokens["target"] else "accent" if data.get("catchup") else "neutral"))
     kpi_html = "".join(
         f'<div class="kpi {tone}"><span class="kpi-label">{label}</span><span class="kpi-value">{value}</span>'
         f'<span class="kpi-note">{note}</span></div>'

@@ -122,8 +122,11 @@
       "days": [0, 1, 2, 3, 4],
       "start": "08:00",
       "end": "17:00",
-      "workers": 3
+      "workers": 3,
+      "catchup_workers": 5
     },
+    "daily_token_target": 1000000000,
+    "_token_note": "OpenCode tokens per day (token_pace.py). Only on a day that is expected to miss it, the weekday schedule runs work_hours.catchup_workers jobs instead of work_hours.workers and new jobs start on OpenCode. 0 switches this off.",
     "engines": [
       "opencode",
       "copilot"
@@ -131,5 +134,18 @@
     "timeout_minutes": 100,
     "max_attempts": 2,
     "max_wait_hours": 0.9
+  },
+  "disk_guard": {
+    "_note": "disk_guard.py: finished scratch is removed after grace_hours (dossier_grace_hours inside prize_work). Under low_free_gb free the pressure_* times apply and cold build caches go; under stop_free_gb the pool starts no new jobs.",
+    "grace_hours": 6,
+    "dossier_grace_hours": 48,
+    "pressure_grace_hours": 2.5,
+    "pressure_dossier_grace_hours": 6,
+    "low_free_gb": 15,
+    "stop_free_gb": 5,
+    "log_days": 14,
+    "archive_days": 30,
+    "archive_mb": 20,
+    "cache_cold_days": 3
   }
 }
