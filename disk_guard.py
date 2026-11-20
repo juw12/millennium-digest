@@ -302,7 +302,8 @@ def clean_scratch(unit, tracked, archive_dir, limits, dry_run):
             if not dry_run:
                 if archive is None:
                     archive_dir.mkdir(parents=True, exist_ok=True)
-                    label = compact(Path(unit).parent.name + Path(unit).name)[:80]
+                    # the hash keeps two entries with the same name (other folders) in separate zips
+                    label = compact(Path(unit).name)[:60] + "_" + hashlib.sha1(str(unit).lower().encode()).hexdigest()[:8]
                     archive = zipfile.ZipFile(archive_dir / f"{dt.date.today():%Y%m%d}_{label}_{os.getpid()}.zip", "a",
                                               zipfile.ZIP_DEFLATED)
                 try:
