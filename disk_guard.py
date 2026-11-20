@@ -67,6 +67,9 @@ MAX_DEPTH = 6
 
 # ------------------------------------------------------------------ helpers
 
+GB = 2 ** 30  # the unit Windows Explorer shows
+
+
 def config():
     try:
         saved = json.loads(DEPARTMENTS.read_text(encoding="utf-8")).get("disk_guard", {})
@@ -76,7 +79,7 @@ def config():
 
 
 def free_gb(root=ROOT):
-    return shutil.disk_usage(root).free / 1e9
+    return shutil.disk_usage(root).free / GB
 
 
 def pool_may_start(root=ROOT):
@@ -519,7 +522,7 @@ def full_pass(root=ROOT, log_dir=None, limits=None, dry_run=False, now=None, say
         for name in ("freed", "removed", "kept", "archived", "busy"):
             scratch[name] += result[name]
     summary["steps"]["scratch"] = scratch
-    say(f"scratch: {scratch['folders']} finished entries, {scratch['removed']} files, {scratch['freed'] / 1e9:.2f} GB; "
+    say(f"scratch: {scratch['folders']} finished entries, {scratch['removed']} files, {scratch['freed'] / GB:.2f} GB; "
         f"{scratch['archived']} small files archived, {scratch['kept']} tracked kept, {scratch['busy']} in use, "
         f"{scratch['waiting']} entries still inside the waiting time")
 
@@ -527,7 +530,7 @@ def full_pass(root=ROOT, log_dir=None, limits=None, dry_run=False, now=None, say
     panel = dedupe_panel(root, tracked, {key_of(unit) for unit, _ in units}, lab_grace, now, running, removed_log,
                          dry_run)
     summary["steps"]["panel_copies"] = panel
-    say(f"review_panel copies: {panel['removed']} files, {panel['freed'] / 1e9:.2f} GB")
+    say(f"review_panel copies: {panel['removed']} files, {panel['freed'] / GB:.2f} GB")
     if removed_log:
         log_dir.mkdir(parents=True, exist_ok=True)
         with open(log_dir / "disk_guard_removed.log", "a", encoding="utf-8") as handle:
@@ -536,16 +539,16 @@ def full_pass(root=ROOT, log_dir=None, limits=None, dry_run=False, now=None, say
 
     logs = old_logs(log_dir, limits, now, dry_run)
     summary["steps"]["logs"] = logs
-    say(f"old worker logs and archives: {logs['removed']} files, {logs['freed'] / 1e9:.2f} GB")
+    say(f"old worker logs and archives: {logs['removed']} files, {logs['freed'] / GB:.2f} GB")
 
     freed = scratch["freed"] + panel["freed"] + logs["freed"]
-    if pressure and before + freed / 1e9 < limits["low_free_gb"]:
+    if pressure and before + freed / GB < limits["low_free_gb"]:
         caches = cold_caches(root, tracked, limits, now, dry_run)
         summary["steps"]["caches"] = caches
         freed += caches["freed"]
-        say(f"cold build caches: {len(caches['folders'])} folders, {caches['freed'] / 1e9:.2f} GB")
+        say(f"cold build caches: {len(caches['folders'])} folders, {caches['freed'] / GB:.2f} GB")
     summary["freed"] = freed
-    summary["free_after_gb"] = round(before + freed / 1e9 if dry_run else free_gb(root), 2)
+    summary["free_after_gb"] = round(before + freed / GB if dry_run else free_gb(root), 2)
     return summary
 
 
@@ -571,7 +574,7 @@ def main(arguments):
     dry_run = "--dry-run" in arguments
     if dry_run:
         summary = full_pass(root, log_dir, limits, dry_run=True)
-        print(f"would free {summary['freed'] / 1e9:.2f} GB (free now {free:.1f} GB)")
+        print(f"would free {summary['freed'] / GB:.2f} GB (free now {free:.1f} GB)")
         return
     log_dir.mkdir(exist_ok=True)
     state_file = log_dir / "disk_guard_state.json"
@@ -593,7 +596,7 @@ def main(arguments):
     try:
         summary = full_pass(root, log_dir, limits, say=lines.append)
         state.update({"last_pass": time.time(), "free_gb": summary.get("free_after_gb"),
-                      "freed_gb": round(summary["freed"] / 1e9, 2), "pressure": summary["pressure"]})
+                      "freed_gb": round(summary["freed"] / GB, 2), "pressure": summary["pressure"]})
         state_file.write_text(json.dumps(state, indent=2), encoding="utf-8")
         after = summary.get("free_after_gb", free)
         with open(log_dir / "disk_guard.log", "a", encoding="utf-8") as handle:
