@@ -35,7 +35,8 @@ def git(folder, *args):
 
 def note(folder, name, header, body="Numbers follow.\n", days_old=5):
     path = folder / name
-    path.write_text(f"# Title of {name[11:-3]}\nTo: Somebody\nDate: 2026-11-01\n{header}\n\n{body}", encoding="utf-8")
+    path.write_text(f"# Title of {name[11:-3]}\nTo: Somebody (to publish himself - do NOT post from this repo)\n"
+                    f"Date: 2026-11-01\n{header}\n\n{body}", encoding="utf-8")
     old = (dt.datetime.now() - dt.timedelta(days=days_old)).timestamp()
     os.utime(path, (old, old))
     return path

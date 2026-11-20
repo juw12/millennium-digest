@@ -107,9 +107,14 @@ def research_jobs(note_text):
     return sorted({match.group(0) for match in JOB_ID.finditer(header) if match.group(1) not in HELPERS})
 
 
+def body_lines(note_text):
+    """The note without its addressee line (a word to the reader in the lab, never part of the public text)."""
+    return [line for index, line in enumerate(note_text.splitlines()) if not (index < 10 and line.startswith("To:"))]
+
+
 def public_text(note_text, day):
     """The note as it goes up: no addressee line, the standing banner under the header."""
-    lines = [line for index, line in enumerate(note_text.splitlines()) if not (index < 10 and line.startswith("To:"))]
+    lines = body_lines(note_text)
     spot = next((index for index, line in enumerate(lines) if index >= 2 and not line.strip()), len(lines))
     lines[spot:spot] = ["", BANNER.format(day=day)]
     return "\n".join(lines).rstrip("\n") + "\n"
@@ -129,7 +134,7 @@ def verdict(path, jobs_by_id, useful, held, published_names, outbox_files, coolo
         return False, ["audit, correction or competition note"]
     reasons = []
     content = path.read_text(encoding="utf-8", errors="replace")
-    waiting = MUST_WAIT.search(content)
+    waiting = MUST_WAIT.search("\n".join(body_lines(content)))
     if waiting:
         reasons.append(f"the note says it must wait ({waiting.group(0).lower()!r})")
     named = research_jobs(content)
