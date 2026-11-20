@@ -66,6 +66,30 @@ def is_strong(job):
     return _first_word(job.get("novelty")) in STRONG
 
 
+def write_index(path, queue_path=None):
+    """Writes the list of useful results as one private note (newest first). Returns the count, 0 if not written."""
+    found = sorted(useful_jobs(queue_path or QUEUE), key=lambda job: str(job.get("finished") or ""), reverse=True)
+    path = Path(path)
+    if not found or not path.parent.exists():
+        return 0
+    lines = [
+        "---", 'title: "Millennium lab: useful results"', "type: note", "tags: [millennium, lab, research]",
+        f"updated: {found[0].get('finished', '')[:10]}", "publish: false", "---", "",
+        f"{len(found)} results passed both checks (Referee pass + Review Panel pass); "
+        f"{sum(map(is_strong, found))} go past a reproduction. Private list: research ideas, not for sharing.",
+        "Rewritten by the lab once a day. Reports: `review_notes/<job>.md` in the lab folder.", "",
+        "| Finished | Kind | Job | Result |", "|---|---|---|---|",
+    ]
+    for job in found:
+        title = " ".join(str(job.get("title") or "").split()).replace("|", "/")[:160]
+        lines.append(f"| {str(job.get('finished') or '')[:10]} | {_first_word(job.get('novelty')) or '-'} | `{job['id']}` | {title} |")
+    try:
+        path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    except OSError:
+        return 0
+    return len(found)
+
+
 if __name__ == "__main__":
     found = useful_jobs()
     if "--list" in sys.argv:

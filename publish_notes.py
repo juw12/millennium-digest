@@ -34,6 +34,7 @@ ROOT = HERE.parent
 OUTBOX = ROOT / "outbox" / "public"
 DECISIONS = ROOT / "outbox" / "public_decisions.json"
 LOG = HERE / "logs" / "publish_notes.log"
+USEFUL_INDEX = Path.home() / "Documents" / "Obsidian Vault" / "notes" / "millennium-lab-useful-results.md"
 DEFAULTS = {"enabled": True, "repo": "../../open-problems-lab", "cooloff_days": 3, "max_per_run": 3,
             "proxy_fallback": "http://localhost:3128"}
 
@@ -320,8 +321,9 @@ def main(argv):
             print(f"{'PUBLISH' if ok else 'keep   '}  {path.name}" + ("" if ok else f"  <- {'; '.join(info)}"))
         print(f"\n{len(ready)} note(s) would be published, {len(rows) - len(ready)} stay")
         return 0
+    listed = lab_useful.write_index(USEFUL_INDEX, lab_useful.QUEUE)  # the private list, on this PC only
     if not settings["enabled"] or not ready:
-        log(f"nothing to publish ({len(rows)} note(s) checked)")
+        log(f"nothing to publish ({len(rows)} note(s) checked; {listed} useful result(s) listed)")
         return 0
     if not (repo / ".git").exists():
         log(f"public repo not found at {repo}")

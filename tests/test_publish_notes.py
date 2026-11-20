@@ -110,6 +110,8 @@ def main():
         publish_notes.HERE, publish_notes.ROOT = automation, lab
         publish_notes.OUTBOX, publish_notes.DECISIONS = outbox, lab / "outbox" / "public_decisions.json"
         publish_notes.LOG = lab / "logs" / "publish_notes.log"
+        (base / "vault").mkdir()
+        publish_notes.USEFUL_INDEX = base / "vault" / "useful.md"
         lab_useful.QUEUE = lab / "research_queue.json"
         (automation / "lab_departments.json").write_text(json.dumps(
             {"publish": {"repo": str(public), "cooloff_days": 3, "max_per_run": 5, "proxy_fallback": ""}}), encoding="utf-8")
@@ -172,6 +174,10 @@ def main():
         saved = json.loads(publish_notes.DECISIONS.read_text(encoding="utf-8"))
         check("the decision file remembers both and keeps the hold list", len(saved["published"]) == 2 and len(saved["hold"]) == 1)
         check("one notice was sent", len(sent) == 1)
+        index = publish_notes.USEFUL_INDEX.read_text(encoding="utf-8")
+        check("the private list names the 3 useful jobs and not the failed one", "3 results passed" in index
+              and "lab_erdos_261101_2" in index and "lab_erdos_261101_3" not in index and "publish: false" in index, index)
+        check("no vault folder: the list is skipped quietly", lab_useful.write_index(base / "nowhere" / "x.md", lab_useful.QUEUE) == 0)
 
         head = git(origin, "rev-parse", "main").strip()
         check("a second run publishes nothing", publish_notes.main([]) == 0 and git(origin, "rev-parse", "main").strip() == head)
