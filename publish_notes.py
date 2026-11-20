@@ -33,7 +33,7 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 OUTBOX = ROOT / "outbox" / "public"
 DECISIONS = ROOT / "outbox" / "public_decisions.json"
-LOG = ROOT / "logs" / "publish_notes.log"
+LOG = HERE / "logs" / "publish_notes.log"
 DEFAULTS = {"enabled": True, "repo": "../../open-problems-lab", "cooloff_days": 3, "max_per_run": 3,
             "proxy_fallback": "http://localhost:3128"}
 
