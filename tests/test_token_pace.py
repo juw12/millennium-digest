@@ -118,6 +118,9 @@ def main():
         gone = token_pace.status(POOL, MONDAY_10, fresh=True)
         check("unreadable database: not behind, pool unchanged", gone["tokens"] is None and not gone["behind"]
               and pool_mode.scheduled_workers(POOL, MONDAY_10) == 3)
+    check("a worker's real finish time is kept", lab_pool.finished_stamp("2026-11-19T21:04:05") == "2026-11-19T21:04:05")
+    stamped = lab_pool.finished_stamp(True)
+    check("a finish time that is not a time becomes now", stamped[:10] == dt.date.today().isoformat(), stamped)
     print("\n" + ("ALL CHECKS PASSED" if not FAILURES else f"{len(FAILURES)} FAILED: {FAILURES}"))
     return 1 if FAILURES else 0
 

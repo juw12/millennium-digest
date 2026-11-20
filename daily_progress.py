@@ -64,7 +64,11 @@ def day_log(today=None, days=DAYS_SHOWN):
 
     for job in (_read(QUEUE, {}) or {}).get("jobs", []):
         if job.get("status") == "done" and job.get("finished"):
-            add(dt.date.fromisoformat(job["finished"][:10]), "research", f"Job done: {job['title']}")
+            try:
+                finished_day = dt.date.fromisoformat(str(job["finished"])[:10])
+            except ValueError:  # a finish time that is not a date must not stop the page from building
+                continue
+            add(finished_day, "research", f"Job done: {job['title']}")
     for day, subject in _git_days(ROOT, first):
         if "research_tick" in subject and "failed" in subject:
             continue

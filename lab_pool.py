@@ -116,6 +116,16 @@ def settings():
     }
 
 
+def finished_stamp(value):
+    """The worker's finish time when it is a real ISO time, otherwise now (a worker once wrote `true`)."""
+    stamp = str(value or "")[:40]
+    try:
+        dt.datetime.fromisoformat(stamp)
+        return stamp
+    except ValueError:
+        return dt.datetime.now().isoformat(timespec="seconds")
+
+
 def behind_token_target(pool):
     """True on a day that is expected to miss pool.daily_token_target (token_pace.py): new jobs then start on
     OpenCode at any hour. (The extra weekday job slots of the catch-up are pool_mode.scheduled_workers' part.)"""
@@ -672,7 +682,7 @@ def merge_results(queue):
         status = data.get("status", "done")
         job["status"] = status if status in ("done", "needs_review", "failed") else "done"
         job["result"] = str(data.get("result", ""))[:1500]
-        job["finished"] = str(data.get("finished") or dt.datetime.now().isoformat(timespec="seconds"))[:40]
+        job["finished"] = finished_stamp(data.get("finished"))
         for key in ("files", "review", "panel", "panel_verdict"):  # "reviewed" is the Referee's flag, not a worker's
             if key in data:
                 job[key] = data[key]
