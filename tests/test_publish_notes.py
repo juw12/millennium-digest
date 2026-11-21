@@ -14,6 +14,7 @@ import tempfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+import lab_facts  # noqa: E402
 import lab_useful  # noqa: E402
 import publish_notes  # noqa: E402
 
@@ -177,6 +178,9 @@ def main():
         index = publish_notes.USEFUL_INDEX.read_text(encoding="utf-8")
         check("the private list names the 3 useful jobs and not the failed one", "3 results passed" in index
               and "lab_erdos_261101_2" in index and "lab_erdos_261101_3" not in index and "publish: false" in index, index)
+        facts = publish_notes.USEFUL_INDEX.with_name(lab_facts.NOTE_NAME).read_text(encoding="utf-8")
+        check("the facts note is written beside the list, from the same lab, private",
+              "3 passed both checks" in facts and "## Self-check" in facts and "publish: false" in facts, facts[-600:])
         check("no vault folder: the list is skipped quietly", lab_useful.write_index(base / "nowhere" / "x.md", lab_useful.QUEUE) == 0)
 
         head = git(origin, "rev-parse", "main").strip()

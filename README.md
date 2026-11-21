@@ -178,3 +178,33 @@ Watched pages are not a to-do for you. Every weekly run, `clay_watch.py`:
   note.
 
 Everything it does is also written to the Activity log.
+
+## Staying up to date (`selfupdate.py`)
+
+A change pushed to `main` from any computer reaches the lab's PC by itself. The scheduled task
+"Millennium updates" runs `selfupdate.py` every 30 minutes; create it once with `python selfupdate.py install`.
+
+- It only fast-forwards: on `main`, no local edits in tracked files, nothing unpushed. It never merges,
+  rebases or resets, and untracked files (logs, state) do not count as edits.
+- Before it switches, every Python and JSON file the new version changes has to compile or parse. A version
+  that does not is left alone and named in the log, so a typo cannot stop the lab unattended.
+- When both sides have commits it stops and says so; join them by hand (`git pull --rebase`, then push).
+- `python selfupdate.py status` shows where the copy stands. `"update": {"enabled": false}` in
+  `lab_departments.json` switches it off. Log: `logs/selfupdate.log`.
+
+The scheduled tasks are short runs and use the new code at their next start; the desktop app uses it the
+next time it is opened.
+
+## The lab's facts and self-check (`lab_facts.py`)
+
+Once a day, with the publish check, the lab writes one private note next to the useful-results list:
+`millennium-lab-facts.md`. It is the place to read before saying what the lab does or what it can earn:
+every desk with what it works on and how many jobs it finished, the prizes in `prizes.json` with their
+amounts and fit, the milestones, the prize problems the desks worked on with the catalogue's prize, and the
+results. Every section names its source file; what no file says is shown as "not stated".
+
+The note ends with a self-check: places where the lab's own files disagree or something is late (a prize a
+desk names that `prizes.json` lacks, a job text with a different prize than the catalogue, an open prize
+past its date, a desk with nothing finished and nothing open, a stale catalogue, a stuck updater). It reads
+only and changes nothing. `python lab_facts.py --check` prints the self-check alone (exit code 1 when it
+found something); `--print` shows the note without writing it.

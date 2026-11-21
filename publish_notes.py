@@ -27,6 +27,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+import lab_facts
 import lab_useful
 
 HERE = Path(__file__).resolve().parent
@@ -322,6 +323,10 @@ def main(argv):
         print(f"\n{len(ready)} note(s) would be published, {len(rows) - len(ready)} stay")
         return 0
     listed = lab_useful.write_index(USEFUL_INDEX, lab_useful.QUEUE)  # the private list, on this PC only
+    try:  # the lab's facts and self-check, in the same private folder; publishing does not wait for it
+        lab_facts.write_note(USEFUL_INDEX.with_name(lab_facts.NOTE_NAME), HERE)
+    except Exception as error:
+        log(f"facts note not written ({type(error).__name__}: {str(error)[:120]})")
     if not settings["enabled"] or not ready:
         log(f"nothing to publish ({len(rows)} note(s) checked; {listed} useful result(s) listed)")
         return 0
