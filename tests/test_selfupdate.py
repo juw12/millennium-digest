@@ -191,12 +191,20 @@ def main():
               and any("local edits in tracked files: 0" in line for line in lines)
               and any("has not run in this folder yet" in line for line in lines), " | ".join(lines))
 
-    command = selfupdate.task_command(Path(r"C:\Python\pythonw.exe"), Path(r"E:\lab\automation\selfupdate.py"))
-    check("the scheduled task: every 30 minutes, replaces the old one",
-          command[:8] == ["schtasks", "/Create", "/TN", "Millennium updates", "/SC", "MINUTE", "/MO", "30"]
-          and command[-1] == "/F", str(command))
-    check("the scheduled task: both paths quoted",
-          command[command.index("/TR") + 1] == r'"C:\Python\pythonw.exe" "E:\lab\automation\selfupdate.py"', str(command))
+    script = selfupdate.task_script(r"C:\Python\pythonw.exe", r"E:\lab\automation\selfupdate.py")
+    check("the scheduled task: named, every 30 minutes and at sign-in, replaces the old one",
+          "-TaskName 'Millennium updates'" in script and "-RepetitionInterval (New-TimeSpan -Minutes 30)" in script
+          and "-AtLogOn" in script and "-Force" in script, script)
+    check("the scheduled task: runs on battery, catches up after sleep, never two at once, ended after 20 minutes",
+          all(setting in script for setting in (
+              "-AllowStartIfOnBatteries", "-DontStopIfGoingOnBatteries", "-StartWhenAvailable",
+              "-MultipleInstances IgnoreNew", "-ExecutionTimeLimit (New-TimeSpan -Minutes 20)")), script)
+    check("the scheduled task: runner and script quoted for PowerShell",
+          "-Execute 'C:\\Python\\pythonw.exe'" in script
+          and """-Argument '"E:\\lab\\automation\\selfupdate.py"'""" in script
+          and "-WorkingDirectory 'E:\\lab\\automation'" in script, script)
+    check("the scheduled task: a quote in a path is doubled",
+          "-Execute 'C:\\O''Brien\\pythonw.exe'" in selfupdate.task_script(r"C:\O'Brien\pythonw.exe", "selfupdate.py"))
     if os.name != "nt":
         check("install on a computer without Task Scheduler: says so, exit 1", selfupdate.install() == 1)
 
