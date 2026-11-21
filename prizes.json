@@ -4,7 +4,7 @@
     {
       "name": "Squares in Squares (Kaggle)",
       "sponsor": "Google LLC",
-      "amount": "$50,000 prize pool",
+      "amount": "$50,000 prize pool: places 1-5 win $12,000, $10,000, $8,000, $5,000, $5,000; two $5,000 milestone prizes for the leaderboard leader (17 Jan and 18 Apr 2027)",
       "task": "Pack n unit squares (n = 1..1000) into the smallest square; score = sum of (L/sqrt(n) - 1). Pure optimisation, no proof needed.",
       "eligibility": "Kaggle account, adult, not in a sanctioned region; teams up to 5",
       "deadline": "entry 2027-07-11, final 2027-07-18",
