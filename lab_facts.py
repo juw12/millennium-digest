@@ -37,7 +37,7 @@ NOTE = Path.home() / "Documents" / "Obsidian Vault" / "notes" / NOTE_NAME
 FINISHED = ("done", "needs_review")
 OPEN = ("needs_ai", "running")
 NEEDED = ("departments", "targets", "prizes", "queue")  # without these the note cannot say much
-MONEY = re.compile(r"(C\$|[$£€¥])\s?(\d[\d,]*(?:\.\d+)?)\s?(k|K|M|million|bn|billion)?\b")
+MONEY = re.compile(r"(C\$|[$£€¥₹])\s?(\d[\d,]*(?:\.\d+)?)\s?(k|K|M|million|bn|billion)?\b")
 SCALE = {"k": 1_000, "K": 1_000, "M": 1_000_000, "million": 1_000_000, "bn": 1_000_000_000, "billion": 1_000_000_000}
 # A catalogue number, at most 80 characters that name no other catalogue number, then a money figure.
 PPL_MONEY = re.compile(r"PPL[ -]?(\d{2,3})\b(?:(?!PPL)[^\n]){0,80}?" + MONEY.pattern)

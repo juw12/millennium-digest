@@ -147,6 +147,8 @@ def main():
     check("money: millions", figures("was $10M fund; $1,000,000 each; $2 million")
           == {("$", 10_000_000), ("$", 1_000_000), ("$", 2_000_000)})
     check("money: the currency is part of the figure", figures("£50") == {("£", 50)} and figures("£50") != figures("$50"))
+    check("money: every currency sign of the catalogue", figures("€1,000, ₹2000, ¥5,000, C$100")
+          == {("€", 1000), ("₹", 2000), ("¥", 5000), ("C$", 100)}, str(figures("€1,000, ₹2000, ¥5,000, C$100")))
     check("money: two figures in one reward", figures("At least $5,000 from $90,000 fund") == {("$", 5000), ("$", 90000)})
     check("money: a word after the figure is not a scale", figures("$5 Kaggle credit") == {("$", 5)})
     check("money: text without a currency sign has no figure", figures("120,000,000 yen, 8 workers, n = 1..1000") == set())

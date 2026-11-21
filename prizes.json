@@ -1,5 +1,5 @@
 {
-  "_note": "Paid math problems / bounties. Checked by web search 2026-11-07. prize_watch.py re-checks every link weekly. 'fit' = how realistic for us (computation-friendly = high; needs a real proof = low). 'extra_catalog' = verified open prizes the Prize Problem Ledger does not list; prize_catalog.py merges them with the ledger into prize_catalog.json (checked 2026-11-10 on the official pages).",
+  "_note": "Paid math problems / bounties. Checked by web search 2026-11-07; the Kaggle prizes and dates were read on the competition's own prize and timeline pages on 2026-11-21. prize_watch.py re-checks every link weekly. 'fit' = how realistic for us (computation-friendly = high; needs a real proof = low). 'extra_catalog' = verified open prizes the Prize Problem Ledger does not list; prize_catalog.py merges them with the ledger into prize_catalog.json (checked 2026-11-10 on the official pages).",
   "prizes": [
     {
       "name": "Squares in Squares (Kaggle)",

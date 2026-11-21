@@ -19,6 +19,7 @@ Log: logs/selfupdate.log. Last result for other scripts: logs/selfupdate.json.
 """
 import datetime as dt
 import json
+import ntpath
 import os
 import shutil
 import subprocess
@@ -32,6 +33,7 @@ DEPARTMENTS = HERE / "lab_departments.json"
 DEFAULTS = {"enabled": True, "branch": "main", "proxy_fallback": "http://localhost:3128"}
 TASK_NAME = "Millennium updates"
 TASK_MINUTES = 30
+TASK_LIMIT_MINUTES = 20  # a check that hangs is ended; the next one starts 30 minutes after the last began
 LOCAL_TIMEOUT = 180  # seconds; ReachPilot's updater on this PC saw plain git calls pass 60 s at 100 % CPU
 FETCH_TIMEOUT = 120
 GIT_FALLBACKS = [
@@ -237,13 +239,27 @@ def status(folder=HERE):
     return lines
 
 
-def task_command(runner, script=None):
-    """The schtasks call that creates the task: every 30 minutes, replacing an older task of the same name."""
-    script = script or Path(__file__).resolve()
-    return [
-        "schtasks", "/Create", "/TN", TASK_NAME, "/SC", "MINUTE", "/MO", str(TASK_MINUTES),
-        "/TR", f'"{runner}" "{script}"', "/F",
-    ]
+def task_script(runner, script=None):
+    """The PowerShell that creates the task, replacing an older one of the same name.
+
+    The same recipe as ReachPilot's updater, which runs on this PC: every 30 minutes and at sign-in, caught up
+    after sleep, never two at once, ended after 20 minutes. A task made with plain `schtasks /Create` would
+    run only on mains power, and the lab's PC is a laptop.
+    """
+    script = str(script or Path(__file__).resolve())
+
+    def quoted(value):
+        return "'" + str(value).replace("'", "''") + "'"  # PowerShell: a quote inside single quotes is doubled
+
+    return f"""
+$action = New-ScheduledTaskAction -Execute {quoted(runner)} -Argument {quoted(f'"{script}"')} -WorkingDirectory {quoted(ntpath.dirname(script))}
+$repeat = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1) -RepetitionInterval (New-TimeSpan -Minutes {TASK_MINUTES})
+$logon = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
+$settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Minutes {TASK_LIMIT_MINUTES}) -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
+Register-ScheduledTask -TaskName {quoted(TASK_NAME)} -Action $action -Trigger @($repeat, $logon) -Settings $settings `
+    -Description 'Keeps the Millennium lab automation on the newest version from GitHub (fast-forward only, never touches local edits).' -Force | Out-Null
+Get-ScheduledTask -TaskName {quoted(TASK_NAME)} | Select-Object TaskName, State
+"""
 
 
 def install():
@@ -252,8 +268,9 @@ def install():
         return 1
     hidden = Path(sys.executable).with_name("pythonw.exe")  # no console window every 30 minutes
     runner = hidden if hidden.exists() else Path(sys.executable)
-    created = subprocess.run(task_command(runner), capture_output=True, text=True)
-    print((created.stdout or created.stderr).strip() or f"schtasks exit {created.returncode}")
+    created = subprocess.run(["powershell", "-NoProfile", "-Command", task_script(runner)],
+                             capture_output=True, text=True)
+    print((created.stdout or created.stderr).strip() or f"powershell exit {created.returncode}")
     return created.returncode
 
 
