@@ -154,5 +154,9 @@
     "repo": "../../open-problems-lab",
     "cooloff_days": 3,
     "max_per_run": 3
+  },
+  "update": {
+    "_note": "selfupdate.py: every 30 minutes this folder is fast-forwarded to main on GitHub, only when it is on main, no tracked file has local edits and nothing is unpushed. A new version whose Python or JSON files do not load is not taken. enabled false stops it.",
+    "enabled": true
   }
 }
