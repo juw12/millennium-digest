@@ -9,7 +9,8 @@ The self-check lists where the lab's files disagree with each other or something
   - a money figure in a desk's text or a milestone that prizes.json does not have
   - an open prize whose deadline has passed, a milestone past its date that is not done
   - a desk that has finished nothing for days and has nothing open
-  - a job text that names a prize for a catalogue problem that the catalogue does not (PPL 043: $100 / $1,000)
+  - a job text or a job's work note that names a prize for a catalogue problem that the catalogue does not
+    (PPL 043: $100 / $1,000)
   - a prize catalogue that was not refreshed, a file that cannot be read, an updater that is stuck
 
 It reads only. It never changes the queue, the settings or a result.
@@ -42,6 +43,10 @@ SCALE = {"k": 1_000, "K": 1_000, "M": 1_000_000, "million": 1_000_000, "bn": 1_0
 # A catalogue number, at most 80 characters that name no other catalogue number, then a money figure.
 PPL_MONEY = re.compile(r"PPL[ -]?(\d{2,3})\b(?:(?!PPL)[^\n]){0,80}?" + MONEY.pattern)
 ISO_DATE = re.compile(r"\d{4}-\d{2}-\d{2}")
+JOB_NOTE = re.compile(r"lab_[a-z]+_\d{6,}_\d+")  # a work note is named after the lab job it reports on
+WORK_NOTES = "Update Log"      # folder in the vault where every lab job leaves its note
+NOTE_BYTES = 8000              # how much of one work note the self-check reads
+PUBLIC_REPO = "../../open-problems-lab"  # publish_notes.py's default, relative to the automation folder
 QUIET_HOURS = 72           # a desk with nothing open is looked at after this long without a finished job ...
 QUIET_PERIODS = 3          # ... or after this many of its own "every_hours", whichever is longer
 CATALOG_MAX_DAYS = 14      # prize_catalog.py refreshes weekly; two missed runs are worth a look
@@ -67,6 +72,31 @@ def lab_paths(here=HERE):
         "squares_score": squares / "best_score.json",
         "submission": squares / "submission.csv",
     }
+
+
+def work_notes(vault):
+    """[(file name, start of its text)] for the lab jobs' own notes in the vault. Empty when there is no vault."""
+    folder = Path(vault) / WORK_NOTES if vault else None
+    if folder is None or not folder.is_dir():
+        return []
+    notes = []
+    for path in sorted(folder.glob("*.md")):
+        if not JOB_NOTE.search(path.name):
+            continue
+        try:
+            with path.open("rb") as handle:
+                notes.append((path.name, handle.read(NOTE_BYTES).decode("utf-8", errors="replace")))
+        except OSError:
+            continue
+    return notes
+
+
+def public_note_count(here, departments):
+    """Notes in the public repo's notes folder, where publish_notes.py looks too. None when the repo is not here."""
+    publish = departments.get("publish") if isinstance(departments, dict) else None
+    repo = (publish or {}).get("repo") or PUBLIC_REPO
+    folder = (Path(here) / repo).resolve() / "notes"
+    return len(list(folder.glob("*.md"))) if folder.is_dir() else None
 
 
 def read_json(path):
@@ -125,7 +155,7 @@ def _milestone_state(milestone, jobs, today, status_of):
         return bool(milestone.get("done")), f"could not be worked out ({type(error).__name__})"
 
 
-def collect(here=HERE, today=None, now=None, milestone_status=None):
+def collect(here=HERE, today=None, now=None, milestone_status=None, vault=None):
     """Everything the note shows, read from the files. Missing files are named in facts["unreadable"]."""
     now = now or dt.datetime.now()
     today = today or now.date()
@@ -192,6 +222,8 @@ def collect(here=HERE, today=None, now=None, milestone_status=None):
         "useful": len(useful), "useful_strong": sum(map(lab_useful.is_strong, useful)),
         "published": len(decisions.get("published") or {}), "held": len(decisions.get("hold") or {}),
         "decisions_read": bool(decisions),
+        "public_notes": public_note_count(here, data["departments"]),
+        "work_notes": work_notes(vault),
         "squares_score": score, "submission_file": paths["submission"].exists(),
         "updater": data["updater"] if isinstance(data["updater"], dict) else {},
     }
@@ -262,22 +294,28 @@ def check_desks(facts):
 
 
 def check_rewards(facts):
-    """A job text that puts a prize next to a catalogue number has to agree with the catalogue."""
+    """A text that puts a prize next to a catalogue number has to agree with the catalogue.
+
+    Read: each job's title and result in the queue, and the note each job leaves in the vault. The first real
+    run (2026-11-21) found nothing in the queue: the wrong figures ("PPL 043 ... $100") are in the work notes,
+    and those are what a later reader, human or AI, takes the prize from.
+    """
     if not facts["catalog_by_number"]:
         return []
+    texts = [(str(job.get("id")), f"{job.get('title', '')}\n{job.get('result', '')}") for job in facts["jobs"]]
+    texts += [(f"note {name}", text) for name, text in facts["work_notes"]]
     wrong = defaultdict(list)
-    for job in facts["jobs"]:
-        text = f"{job.get('title', '')}\n{job.get('result', '')}"
+    for label, text in texts:
         for match in PPL_MONEY.finditer(text):
             item = facts["catalog_by_number"].get(int(match.group(1)))
             figure = next(iter(money_figures(match.group(0)[match.start(2) - match.start(0):])), None)
             if not item or figure is None:
                 continue
             if figure not in money_figures(item.get("reward")):
-                wrong[(str(item.get("id")), str(item.get("reward") or "not stated"), figure)].append(str(job.get("id")))
-    return [f"{item_id}: the catalogue says {reward}, but {len(job_ids)} job text(s) say {show_money(figure)} "
-            f"(first: {job_ids[0]})"
-            for (item_id, reward, figure), job_ids in sorted(wrong.items())]
+                wrong[(str(item.get("id")), str(item.get("reward") or "not stated"), figure)].append(label)
+    return [f"{item_id}: the catalogue says {reward}, but {len(labels)} job text(s) or work note(s) say "
+            f"{show_money(figure)} (first: {labels[0]})"
+            for (item_id, reward, figure), labels in sorted(wrong.items())]
 
 
 def check_catalog(facts):
@@ -402,9 +440,12 @@ def render(facts, findings):
               f"- {facts['finished_total']} finished jobs in the queue; {facts['useful']} passed both checks "
               f"(Referee pass and Review Panel pass); {facts['useful_strong']} of those go past a reproduction. "
               "Source: `research_queue.json`.",
-              (f"- Public notes: {facts['published']} published, {facts['held']} on the hold list. "
-               "Source: `outbox/public_decisions.json`." if facts["decisions_read"]
-               else "- Public notes: not stated (`outbox/public_decisions.json` could not be read)."),
+              ("- Public notes: "
+               + (f"{facts['public_notes']} in the public repo's `notes` folder"
+                  if facts["public_notes"] is not None else "the public repo is not on this computer, so not stated")
+               + (f"; {facts['published']} of the public ones were put there by the publish bridge, "
+                  f"{facts['held']} are on its hold list (`outbox/public_decisions.json`)."
+                  if facts["decisions_read"] else "; the bridge's record (`outbox/public_decisions.json`) could not be read.")),
               ]
     score = facts["squares_score"]
     if score:
@@ -435,7 +476,7 @@ def write_note(path=NOTE, here=HERE, today=None, now=None, milestone_status=None
     path = Path(path)
     if not path.parent.exists():
         return None
-    facts = collect(here, today, now, milestone_status)
+    facts = collect(here, today, now, milestone_status, vault=path.parent.parent)  # <vault>/notes/<this note>
     findings = self_check(facts)
     temp = path.with_suffix(".tmp")
     temp.write_text(render(facts, findings), encoding="utf-8")
@@ -444,7 +485,7 @@ def write_note(path=NOTE, here=HERE, today=None, now=None, milestone_status=None
 
 
 def main(argv):
-    facts = collect()
+    facts = collect(vault=NOTE.parent.parent)
     findings = self_check(facts)
     if "--check" in argv:
         print("\n".join(findings) or "Nothing found.")

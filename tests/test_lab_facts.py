@@ -8,6 +8,7 @@ on a lab whose files agree, then to speak when one file is changed. Exit code 0 
 import copy
 import datetime as dt
 import json
+import shutil
 import sys
 import tempfile
 from pathlib import Path
@@ -113,6 +114,14 @@ def build_lab(base, **changed):
         lab / "outbox" / "public_decisions.json": {"hold": {"a.md": "wait", "b.md": "wait"}, "published": {"c.md": "x"}},
         lab / "prize_work" / "squares-in-squares" / "best_score.json": {"valid": True, "score": 22.108257},
         lab / "prize_work" / "squares-in-squares" / "submission.csv": "n,side\n",
+        base / "open-problems-lab" / "notes" / "2026-11-01-a.md": "public",
+        base / "open-problems-lab" / "notes" / "2026-11-02-b.md": "public",
+        base / "open-problems-lab" / "notes" / "2026-11-03-c.md": "public",
+        base / "open-problems-lab" / "README.md": "not a note",
+        base / "vault" / "Update Log" / "2026-11-18 1010 millennium lab_prize_261118_1.md":
+            changed.get("work_note", "# PPL 043 (Sun alternating sums of consecutive primes, $1,000): verified to 1e9"),
+        base / "vault" / "Update Log" / "2026-11-20 0900 reachpilot listings.md":
+            "PPL 043 ($7): not a lab job's note, so it is not read",
     }
     for path, data in files.items():
         if data is None:
@@ -130,7 +139,7 @@ def milestone_status(milestone, jobs, today):
 
 
 def findings_for(base, **changed):
-    facts = lab_facts.collect(build_lab(base, **changed), TODAY, NOW, milestone_status)
+    facts = lab_facts.collect(build_lab(base, **changed), TODAY, NOW, milestone_status, vault=base / "vault")
     return lab_facts.self_check(facts)
 
 
@@ -159,7 +168,7 @@ def main():
     with tempfile.TemporaryDirectory() as temp:
         base = Path(temp)
         automation = build_lab(base)
-        facts = lab_facts.collect(automation, TODAY, NOW, milestone_status)
+        facts = lab_facts.collect(automation, TODAY, NOW, milestone_status, vault=base / "vault")
         squares, prize, rh = (facts["per_desk"][name] for name in ("squares", "prize", "rh"))
         check("desk counts: yesterday", (squares["yesterday"], prize["yesterday"], rh["yesterday"]) == (2, 1, 1), str(squares))
         check("desk counts: the 7 days before today, today itself left out", squares["week"] == 3 and prize["week"] == 3,
@@ -172,7 +181,12 @@ def main():
         check("results: finished, useful, past a reproduction",
               (facts["finished_total"], facts["useful"], facts["useful_strong"]) == (12, 1, 1),
               str((facts["finished_total"], facts["useful"], facts["useful_strong"])))
-        check("results: published and held", (facts["published"], facts["held"]) == (1, 2))
+        check("results: published by the bridge and held", (facts["published"], facts["held"]) == (1, 2))
+        check("results: public notes are counted in the public repo, not in the bridge's record",
+              facts["public_notes"] == 3, str(facts["public_notes"]))
+        check("work notes: only the notes of lab jobs are read",
+              [name for name, _ in facts["work_notes"]] == ["2026-11-18 1010 millennium lab_prize_261118_1.md"],
+              str([name for name, _ in facts["work_notes"]]))
         check("prize problems: jobs counted, prize from the catalogue",
               [(p["id"], p["reward"], p["jobs"]) for p in facts["problems"]]
               == [("PPL 090", "£50", 2), ("PPL 043", "$1,000", 1)], str(facts["problems"]))
@@ -192,10 +206,13 @@ def main():
         check("note: score, submission file and what no file says",
               "best score 22.108257" in note and "is on disk: yes" in note
               and "Whether anything was submitted to Kaggle is not stated" in note)
+        check("note: public notes say what is public and what the bridge did",
+              "- Public notes: 3 in the public repo's `notes` folder; 1 of the public ones were put there by the "
+              "publish bridge, 2 are on its hold list" in note, note.split("## Results")[1][:500])
         check("note: updater and a clean self-check", "up to date at abc1234" in note and "Nothing found" in note)
 
         vault = base / "vault" / "notes"
-        check("no vault folder on this computer: nothing written",
+        check("no notes folder in the vault on this computer: nothing written",
               lab_facts.write_note(vault / lab_facts.NOTE_NAME, automation, TODAY, NOW, milestone_status) is None
               and not vault.exists())
         vault.mkdir(parents=True)
@@ -247,9 +264,24 @@ def main():
         ]
         found = findings_for(base, queue={"jobs": wrong})
         check("a prize next to a catalogue number that the catalogue does not have",
-              found == ["PPL 043: the catalogue says $1,000, but 1 job text(s) say $100 (first: lab_prize_261112_9)",
-                        "PPL 090: the catalogue says £50, but 1 job text(s) say $50 (first: lab_prize_261114_12)"],
+              found == ["PPL 043: the catalogue says $1,000, but 1 job text(s) or work note(s) say $100 "
+                        "(first: lab_prize_261112_9)",
+                        "PPL 090: the catalogue says £50, but 1 job text(s) or work note(s) say $50 "
+                        "(first: lab_prize_261114_12)"],
               " | ".join(found))
+
+        found = findings_for(base, work_note="# PPL 043 (Bounty Hunters, $100) extension job")
+        check("the same in a job's work note, where the queue says nothing",
+              found == ["PPL 043: the catalogue says $1,000, but 1 job text(s) or work note(s) say $100 "
+                        "(first: note 2026-11-18 1010 millennium lab_prize_261118_1.md)"], " | ".join(found))
+        written = lab_facts.write_note(vault / lab_facts.NOTE_NAME, build_lab(base, work_note="PPL 090 row, $50"),
+                                       TODAY, NOW, milestone_status)
+        check("the daily note reads the work notes of the vault it is written into",
+              written is not None and len(written) == 1 and "PPL 090" in written[0] and "$50" in written[0], str(written))
+        facts = lab_facts.collect(build_lab(base), TODAY, NOW, milestone_status)
+        check("no vault given: no work notes, no crash", facts["work_notes"] == [] and lab_facts.self_check(facts) == [])
+        facts = lab_facts.collect(build_lab(base), TODAY, NOW, milestone_status, vault=base / "nowhere")
+        check("a vault without the notes folder: the same", facts["work_notes"] == [])
 
         found = findings_for(base, catalog=dict(CATALOG, checked="2026-11-01"))
         check("a catalogue not refreshed for more than two weeks", found == [
@@ -298,6 +330,18 @@ def main():
         facts = lab_facts.collect(build_lab(base), TODAY, NOW, failing_status)
         check("a milestone that cannot be worked out does not cost the note",
               all("could not be worked out (TypeError)" in milestone["note"] for milestone in facts["milestones"]))
+
+        automation = build_lab(base)
+        shutil.rmtree(base / "open-problems-lab")
+        facts = lab_facts.collect(automation, TODAY, NOW, milestone_status)
+        check("no public repo on this computer: said so, not counted as 0",
+              facts["public_notes"] is None
+              and "the public repo is not on this computer, so not stated" in lab_facts.render(facts, []))
+
+    import lab
+    check("lab.py: a finish time that is not text is no day, not a crash",
+          lab._finished_day({"finished": True}) is None
+          and lab._finished_day({"finished": "2026-11-20T08:00:00"}) == dt.date(2026, 11, 20))
 
     # ---- the settings this repository ships must agree with each other
     shipped = lab_facts.collect(HERE, TODAY, NOW, milestone_status)
