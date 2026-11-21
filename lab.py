@@ -375,7 +375,7 @@ def _agent_status(job_id, agent_jobs):
 def _finished_day(job):
     stamp = job.get("finished") or job.get("bridged") or ""
     try:
-        return dt.date.fromisoformat(stamp[:10])
+        return dt.date.fromisoformat(str(stamp)[:10])
     except ValueError:
         return None
 
