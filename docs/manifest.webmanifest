@@ -1,0 +1,22 @@
+{
+  "name": "Millennium Digest",
+  "short_name": "Millennium",
+  "description": "A weekly digest of new arXiv papers on the seven Millennium Prize problems, with a drafts-only, rule-checked outreach helper.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#fbfaf7",
+  "theme_color": "#fbfaf7",
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
