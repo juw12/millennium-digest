@@ -19,6 +19,15 @@ A small personal research tool around the Clay Millennium Prize problems. It has
 This is a hobby tool by an engineer, not a mathematician. It does not solve or claim progress on any
 Millennium problem.
 
+## Get it on your device
+
+- **Windows:** [`MillenniumDigest-Windows-Setup.exe`](https://github.com/juw12/millennium-digest/releases/download/desktop/MillenniumDigest-Windows-Setup.exe) (no admin needed; if Windows says it protected your PC, choose *More info → Run anyway*), or without installing [`MillenniumDigest-Windows-Portable.zip`](https://github.com/juw12/millennium-digest/releases/download/desktop/MillenniumDigest-Windows-Portable.zip).
+- **Mac:** [`MillenniumDigest-macOS-AppleSilicon.dmg`](https://github.com/juw12/millennium-digest/releases/download/desktop/MillenniumDigest-macOS-AppleSilicon.dmg) (M1 and newer) or [`MillenniumDigest-macOS-Intel.dmg`](https://github.com/juw12/millennium-digest/releases/download/desktop/MillenniumDigest-macOS-Intel.dmg). The first time, macOS blocks it because it is not notarized: **System Settings → Privacy & Security → Open Anyway**.
+- **Android:** [`MillenniumDigest-android.apk`](https://github.com/juw12/millennium-digest/releases/download/android/MillenniumDigest-android.apk): open the file on the phone and allow your browser to install apps once.
+- **iPhone:** open https://juw12.github.io/millennium-digest/ in Safari, tap Share, then **Add to Home Screen**.
+
+The Windows, Mac and Android apps open the Millennium Digest site in a window of its own ([`desktop/`](desktop/README.md), [`android/`](android/README.md)) and change with it. Each build is opened on GitHub's machines before it is published: on Windows and on a Mac the page loads, the app starts and can store data; on an Android emulator it installs, opens and stays up. They are not code-signed or notarised, and no real phone or PC has run them yet.
+
 ## Numerical results
 
 Results page: https://juw12.github.io/millennium-digest/results.html (source: `docs/results.html`, last updated 2026-11-07).
