@@ -62,7 +62,8 @@ OPEN = ("needs_ai", "running")
 # The Referee comes right after the Director: it holds one slot, and a claim nobody re-ran is what every later
 # idea would be built on (2026-11-10: 83 finished results waited for it, 38 of them claiming progress).
 PRIORITY = ["director", "review", "squares", "erdos", "panel", "prize", "writer", "tools", "bsd", "rh", "scout"]
-INFRASTRUCTURE = ("copilot not logged in", "copilot out of quota", "no connection")  # not the job's fault
+INFRASTRUCTURE = ("copilot not logged in", "copilot out of quota", "copilot offline",
+                  "no connection")  # not the job's fault
 DETACHED = 0x00000008 | 0x00000200 | 0x08000000 | 0x00000020  # DETACHED | NEW_GROUP | NO_WINDOW | NORMAL priority
 # (below-normal starved the workers on a busy PC: 1.4 s of CPU in 33 minutes, 2026-11-10)
 PROMPT_ROOM = 21500  # characters a prompt may reach before lab memory is trimmed. The whole prompt travels on the
@@ -239,6 +240,8 @@ def opencode_environment():
 COPILOT_FLAG = LOG_DIR / "copilot_needs_login.txt"
 COPILOT_QUOTA_FLAG = LOG_DIR / "copilot_out_of_quota.txt"
 COPILOT_QUOTA_HOURS = 6  # how long Copilot is left alone after it reports a used-up plan quota
+COPILOT_OFFLINE_FLAG = LOG_DIR / "copilot_offline.txt"
+COPILOT_OFFLINE_HOURS = 1  # Copilot could not reach its own API (office proxy 502): left alone this long
 MODEL_FLAG = LOG_DIR / "model_unreachable.txt"  # written when an OpenCode worker could not reach its model
 MODEL_QUESTION = "Reply with the single word OK. Do not use any tools."
 MODEL_CHECK_MINUTES = 25  # how long that answer may take: a busy PC needed 11 minutes for the one word
@@ -261,6 +264,20 @@ def _copilot_out_of_quota(log_path):
     except (OSError, TypeError):
         return False
     return "exceeded your" in text and "quota" in text
+
+
+def _copilot_offline(log_path):
+    """Copilot never started work: it could not reach its own API ("Failed to load models", proxy CONNECT 502).
+    Only a tiny log counts, so a worker that quotes the message during a real run does not. From 2026-11-20 to
+    11-24 all 317 Copilot runs ended this way, each one counted as a lost attempt of the job."""
+    try:
+        path = Path(log_path)
+        if path.stat().st_size > 2500:
+            return False
+        text = path.read_text(encoding="utf-8", errors="replace")
+    except (OSError, TypeError):
+        return False
+    return "Failed to load models" in text or "could not connect to the Copilot API" in text
 
 
 def _no_connection(log_path):
@@ -314,7 +331,8 @@ def copilot_usable():
     so a fresh /login is picked up automatically; a failed check costs ~1 min and is not counted as an attempt)."""
     if not COPILOT.exists():
         return False
-    for flag, hours in ((COPILOT_FLAG, 1), (COPILOT_QUOTA_FLAG, COPILOT_QUOTA_HOURS)):
+    for flag, hours in ((COPILOT_FLAG, 1), (COPILOT_QUOTA_FLAG, COPILOT_QUOTA_HOURS),
+                        (COPILOT_OFFLINE_FLAG, COPILOT_OFFLINE_HOURS)):
         if flag.exists() and (dt.datetime.now().timestamp() - flag.stat().st_mtime) / 3600 <= hours:
             return False  # tried again afterwards; delete the flag file in logs/ to try at once
     return True
@@ -794,6 +812,9 @@ def collect():
             elif entry["engine"] == "copilot" and _copilot_out_of_quota(entry.get("log")):
                 outcome = "copilot out of quota"
                 COPILOT_QUOTA_FLAG.write_text(dt.datetime.now().isoformat(timespec="seconds"), encoding="utf-8")
+            elif entry["engine"] == "copilot" and _copilot_offline(entry.get("log")):
+                outcome = "copilot offline"
+                COPILOT_OFFLINE_FLAG.write_text(dt.datetime.now().isoformat(timespec="seconds"), encoding="utf-8")
             elif _no_connection(entry.get("log")):
                 outcome = "no connection"
                 if entry["engine"] == "opencode":  # from now on the model is asked before a job is started
