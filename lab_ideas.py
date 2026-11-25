@@ -152,14 +152,17 @@ def ranked(dept=None, statuses=("open",), bank=None):
     return cards
 
 
-def next_card(dept, held=(), taken=(), working=()):
+def next_card(dept, held=(), taken=(), working=(), frontier_only=False):
     """(card, wait): the department's best open card that no open job holds (`held`: card ids) and whose problem
     nobody is working on (`taken`: topic ids). An idea the Director has not reviewed yet is an opinion, so it may
     fill only one of the department's jobs (`working`: the card ids its open jobs hold). When such ideas are all
     that is left, wait is True: the slot goes to a department with reviewed work, and director_target sends the
-    Director here."""
+    Director here. frontier_only: the lab already runs its share of internal checks (slot_balance.internal_cap),
+    so only cards with a frontier claim are offered."""
     bank = _load_quiet()
     free = [card for card in ranked(dept, bank=bank) if card["id"] not in held and card.get("topic_id") not in taken]
+    if frontier_only:
+        free = [card for card in free if card.get("frontier", dept in FRONTIER_DEPTS)]
     if free and any(_owed(card) for card in bank["cards"] if card["id"] in working):
         reviewed = [card for card in free if not _owed(card)]
         return (reviewed[0], False) if reviewed else (None, True)

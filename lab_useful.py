@@ -53,6 +53,11 @@ def useful_jobs(queue_path=QUEUE):
         jobs = json.loads(Path(queue_path).read_text(encoding="utf-8")).get("jobs", [])
     except (OSError, ValueError):
         return []
+    return useful_from(jobs)
+
+
+def useful_from(jobs):
+    """useful_jobs() for a job list that is already loaded."""
     verdicts = panel_verdicts(jobs)
     return [job for job in jobs
             if _first_word(job.get("referee")) == "pass" and verdicts.get(str(job.get("id"))) == "pass"]

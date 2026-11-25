@@ -22,6 +22,7 @@ HERE = Path(__file__).resolve().parent
 if str(HERE) not in sys.path:  # lab.py is also imported by scripts that run from other folders
     sys.path.insert(0, str(HERE))
 import lab_ideas  # noqa: E402
+import slot_balance  # noqa: E402
 
 ROOT = HERE.parent
 QUEUE = ROOT / "research_queue.json"
@@ -143,15 +144,39 @@ def _topic_text(item):
             f"this name); scripts in prize_work/{slug}/.")
 
 
-def _next_card(dept_id, jobs):
+def _next_card(dept_id, jobs, frontier_only=False, skip=()):
     """(card, wait) - see lab_ideas.next_card. wait: only ideas the Director has not reviewed are left and one of
     the department's jobs already works on one."""
     if dept_id not in lab_ideas.CARD_DEPTS:
         return None, False
     open_jobs = [job for job in jobs if job.get("status") in OPEN]
-    held = {job.get("idea_id") for job in open_jobs}
+    held = {job.get("idea_id") for job in open_jobs} | set(skip)
     working = {job.get("idea_id") for job in open_jobs if job_dept(job) == dept_id}
-    return lab_ideas.next_card(dept_id, held, _taken_topics(jobs), working)
+    return lab_ideas.next_card(dept_id, held, _taken_topics(jobs), working, frontier_only)
+
+
+def _programme_without_slate(dept_id, card, jobs):
+    """True for a programme card (repeat, no catalogue problem of its own) when no catalogue problem is left for its
+    slate. Before 2026-11-25 such a card stopped the whole desk: every Erdos catalogue problem had a dossier, the
+    top card was a programme, and the Erdos Bench fell from 17 job starts a day to 4 while 21 cards that name their
+    own problem waited."""
+    if dept_id not in WANTED or not card.get("repeat"):
+        return False
+    if card.get("topic_id") and any(entry["id"] == card["topic_id"] for entry in _catalog()):
+        return False
+    return not _slate(_open_topics(jobs, WANTED[dept_id], dept_id == "prize"))
+
+
+def is_internal(job, cards):
+    """A research job that can only end as an internal check: its card makes no frontier claim, or it has no card
+    in a department whose standing brief makes none (the Packing Shop). `cards`: {card id: card}."""
+    dept = job_dept(job)
+    if dept not in lab_ideas.CARD_DEPTS:
+        return False
+    card = cards.get(job.get("idea_id"))
+    if card:
+        return not card.get("frontier", dept in lab_ideas.FRONTIER_DEPTS)
+    return dept not in lab_ideas.FRONTIER_DEPTS
 
 
 def _waiting_for(dept_id, jobs):
@@ -190,15 +215,23 @@ def _last_result(jobs, dept):
     return finished[-1].get("result", "") if finished else ""
 
 
-def plan_job(dept, jobs, today, number, config=None):
+def plan_job(dept, jobs, today, number, config=None, frontier_only=False):
     """Title, instructions and fields for the department's next job (None = nothing to do now). A research
     department works its best open idea card; without one it falls back to its standing brief. Only one of its
-    jobs at a time may work an idea the Director has not reviewed."""
+    jobs at a time may work an idea the Director has not reviewed. frontier_only: the internal-check cap is
+    reached, so only a frontier card will do (no standing brief in a department whose brief makes no claim)."""
     dept_id = dept["id"]
     job_id = f"lab_{dept_id}_{today:{ID_DATE}}_{number}"
-    card, wait = _next_card(dept_id, jobs)
+    card, wait, skip = None, False, set()
+    for _ in range(100):  # a programme card with no problem left to pick from is skipped, not the whole desk
+        card, wait = _next_card(dept_id, jobs, frontier_only, skip)
+        if not (card and _programme_without_slate(dept_id, card, jobs)):
+            break
+        skip.add(card["id"])
     if wait:
         return None  # an empty slot beats a second job on an idea the Director has not reviewed
+    if frontier_only and not card and dept_id not in lab_ideas.FRONTIER_DEPTS:
+        return None  # the slot goes to a department with frontier work
     previous = "" if card else _last_result(jobs, dept_id)
     carry = f" Your previous result: {previous[:400]}" if previous else ""
     extra = {"idea_id": card["id"]} if card else {}
@@ -302,6 +335,15 @@ def ensure_jobs(today=None, dry_run=False):
             lab_ideas.reconcile(jobs)  # cards whose job is gone go back to the bank
         except (OSError, ValueError):
             pass  # an unreadable idea bank never stops the lab: departments fall back to their standing briefs
+    cap = None
+    try:  # desks get today's slots (slot_balance.py, worked out once a day) and the internal-check cap
+        slot_balance.ensure_today(config, jobs, today, dry_run)
+        slot_balance.apply(config, today)
+        cap = slot_balance.internal_cap(config)
+        cards = {card["id"]: card for card in lab_ideas._load_quiet()["cards"]}
+        internal_open = sum(1 for job in jobs if job.get("status") in OPEN and is_internal(job, cards))
+    except Exception:  # the balance must never stop the lab: the base slots and no cap apply
+        cap, cards, internal_open = None, {}, 0
     open_lab = [job for job in jobs if job_dept(job) and job.get("status") in OPEN]
     room = config.get("max_open", 8) - len(open_lab)
     created = []
@@ -318,13 +360,16 @@ def ensure_jobs(today=None, dry_run=False):
         while room > 0 and open_mine < dept.get("slots", 1):
             prefix = f"lab_{dept['id']}_{today:{ID_DATE}}_"
             number = 1 + sum(1 for job in jobs if job.get("id", "").startswith(prefix))
-            job = plan_job(dept, jobs, today, number, config)
+            capped = cap is not None and dept["id"] in lab_ideas.CARD_DEPTS and internal_open >= cap
+            job = plan_job(dept, jobs, today, number, config, frontier_only=capped)
             if not job:
                 break
             created.append(job)
             jobs.append(job)
             room -= 1
             open_mine += 1
+            if is_internal(job, cards):
+                internal_open += 1
     if created and not dry_run:
         fresh = _read(QUEUE) or queue  # add to the file as it is now: another script may have written meanwhile
         known = {job.get("id") for job in fresh.setdefault("jobs", [])}

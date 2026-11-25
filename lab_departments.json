@@ -1,7 +1,30 @@
 {
-  "_note": "Millennium Lab: one bot per department. Lab jobs run in parallel in lab_pool.py (pool.workers at once, OpenCode and Copilot CLI), not in the one-at-a-time Cairn autopilot. slots = jobs a department may have open at once; every_hours = minimum gap between its jobs; paused = true stops it. Slots follow the prize table (Cairn note millennium-prize-table, 2026-11-21): the Packing Shop has 5 because the Kaggle contest is the only prize where the lab's daily output is what gets paid; Erdos Bench 2, Bounty Hunters 1. Research departments (squares, erdos, prize, bsd, rh) work idea cards from the idea bank (lab_ideas.py), best value x odds / cost first; the Director's Office refills the bank from the lab notebook. pool.max_wait_hours: a job that has waited longer starts before higher-priority departments.",
+  "_note": "Millennium Lab: one bot per department. Lab jobs run in parallel in lab_pool.py (pool.workers at once, OpenCode and Copilot CLI), not in the one-at-a-time Cairn autopilot. slots = jobs a department may have open at once; every_hours = minimum gap between its jobs; paused = true stops it. Base slots (2026-11-25, Juwen): Packing Shop 3, Erdos Bench 3, Bounty Hunters 2 - from 11-14 to 11-25 only one result went past a reproduction while the Packing Shop's internal checks took most jobs. slot_balance.py moves these slots once a day towards the desks that deliver (see 'rebalance'). Research departments (squares, erdos, prize, bsd, rh) work idea cards from the idea bank (lab_ideas.py), best value x odds / cost first; the Director's Office refills the bank from the lab notebook. pool.max_wait_hours: a job that has waited longer starts before higher-priority departments.",
   "max_open": 18,
   "target_steps_per_day": 24,
+  "rebalance": {
+    "_note": "slot_balance.py, once a day on the first pool tick: each desk in 'bounds' moves at most max_step slot towards its share of the total by yield = (strong results + 0.5) / (finished jobs + 5) over window_days; strong = Referee pass + Review Panel pass + novelty extension/new/negative; the Packing Shop also earns one hit per squares_gain_per_hit relative score gain. The total stays the sum of the base slots. internal_share: once that share of all research slots holds internal-check jobs (card without a frontier claim, or the Packing Shop's standing brief), new research jobs must take a frontier card. Plan: logs/slot_plan.json (delete it to use the base slots); enabled false switches both off.",
+    "enabled": true,
+    "bounds": {
+      "squares": [
+        2,
+        5
+      ],
+      "erdos": [
+        1,
+        4
+      ],
+      "prize": [
+        1,
+        4
+      ]
+    },
+    "window_days": 7,
+    "max_step": 1,
+    "internal_share": 0.5,
+    "squares_gain_per_hit": 0.001,
+    "plan_valid_days": 3
+  },
   "departments": [
     {
       "id": "director",
@@ -42,7 +65,7 @@
       "role": "One open Erdos prize problem per job: literature + forum check, computation, honest status",
       "color": 2,
       "brief": "Work the idea card below on the Erdos problem it names, or on the ONE candidate problem you pick from the list. Check the current status on erdosproblems.com first (page, comments, cited papers: many are solved or have recent partial results). Write the dossier at exactly prize_work/<slug>.md as named below (exact statement, prize, what is known with references, and the published computational frontier with its source); scripts go in prize_work/<slug>/. Reproducing a published small case is only the gate that your code is right. The result is one verified step past the published frontier (a larger case, a new term, a sharper bound, a counterexample search over a stated range), or a clean negative saying why that is out of reach for a laptop. If something looks new, set status needs_review with one line why; never post on the forum or claim a prize. Any claimed proof must come with a Lean 4 statement (and proof if the toolchain is installed) in prize_work/<slug>/lean/; without it the result stays needs_review.",
-      "slots": 2
+      "slots": 3
     },
     {
       "id": "prize",
@@ -52,7 +75,7 @@
       "role": "Searches, records and counterexamples for the catalogue's computable bounties",
       "color": 3,
       "brief": "Work the idea card below on the prize problem it names, or on the ONE candidate you pick from the list. Read the source page first. Write the dossier at exactly prize_work/<slug>.md as named below (statement, prize terms, best known record, the published search frontier with its source, why it is hard, feasibility for a laptop). Then run ONE bounded search or experiment yourself (script in prize_work/<slug>/, at most 1 h CPU, with a gate) that goes past the published frontier or attacks it with a different method, and report the exact range searched. A toy model of a large prize is not a result. Never submit anything to a sponsor.",
-      "slots": 1
+      "slots": 2
     },
     {
       "id": "squares",
@@ -62,7 +85,7 @@
       "role": "Solver for packing n unit squares (n = 1..1000) into the smallest square; tracks the score",
       "color": 4,
       "brief": "Packing Shop (Kaggle Squares in Squares, $50k; $5k milestone prizes to the leaderboard leader on 17 Jan 2027 and 18 Apr 2027; final 18 Jul 2027). The harness is in prize_work/squares-in-squares/: sis.py (strict validator, score), nightly.py (runs every strategy in strategies/ for all n every night and keeps the best valid packing per n), best_score.json (total score and 'holders': how many n each strategy holds), refs/ (published records), submission.csv. Work the idea card below. If it is a construction or a search, deliver it as ONE new strategy file strategies/<name>.py (NAME + pack(n, seconds) -> list of (x, y, angle) or None); never edit another worker's strategy file - import it if you build on it. Test with `python nightly.py --minutes 2 --only <ns>` and report the strategy NAME, which n improved and the new total score. If the card asks for references or tooling instead, deliver exactly the files it names. Only the scoreboard counts: a construction that does not beat the stored best for some n is a negative result. A better score is not a discovery: before you class a side as 'extension' or 'new', run `python refs/frontier_compare_vector.py --candidate N SIDE`, quote its verdict line and follow refs/FRONTIER_vector_check.md. Never upload to Kaggle; Juwen submits.",
-      "slots": 5
+      "slots": 3
     },
     {
       "id": "scout",
@@ -119,7 +142,13 @@
     "workers": 8,
     "work_hours": {
       "_note": "Weekdays 08:00-17:00 the pool runs at most this many workers so the PC stays usable; workers above applies at all other times.",
-      "days": [0, 1, 2, 3, 4],
+      "days": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
       "start": "08:00",
       "end": "17:00",
       "workers": 3,
