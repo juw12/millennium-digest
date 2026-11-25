@@ -47,3 +47,13 @@ def test_talos_tokens_count_lab_sessions_only(tmp_path):
     days = token_pace.talos_tokens_by_day(now=today, database=database, root=r"E:\Projects\MillenniumResearch")
     assert days == {"2026-11-25": 1515}
     assert token_pace.talos_tokens_by_day(now=today, database=tmp_path / "missing.db") == {}
+
+
+def test_turns_continue_across_ticks():
+    """One start per tick (work hours) must still reach Talos: the turn index is the pool state size + slot."""
+    state = {}
+    engines = []
+    for tick in range(6):
+        engines.append(lab_pool.pick_engine(["opencode", "talos"], {"opencode": 2, "talos": 1}, len(state) + 0))
+        state[f"job{tick}"] = {"attempts": []}
+    assert engines.count("talos") == 2

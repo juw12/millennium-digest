@@ -939,7 +939,8 @@ def fill():
         elif config["opencode_first"] and "opencode" in engines:
             engine = "opencode"  # behind the daily token target: Copilot only takes retries
         else:
-            engine = pick_engine(engines, config.get("engine_weights", {}), slot)
+            engine = pick_engine(engines, config.get("engine_weights", {}), len(state) + slot)  # turns run on
+            # across ticks: in work hours a tick often starts one job, and slot alone would always be 0
         if engine == "copilot" and not copilot_usable():
             engine = "opencode"
         if engine == "talos" and not talos_usable():
