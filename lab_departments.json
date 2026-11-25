@@ -1,5 +1,5 @@
 {
-  "_note": "Millennium Lab: one bot per department. Lab jobs run in parallel in lab_pool.py (pool.workers at once, OpenCode and Copilot CLI), not in the one-at-a-time Cairn autopilot. slots = jobs a department may have open at once; every_hours = minimum gap between its jobs; paused = true stops it. Base slots (2026-11-25, Juwen): Packing Shop 3, Erdos Bench 3, Bounty Hunters 2 - from 11-14 to 11-25 only one result went past a reproduction while the Packing Shop's internal checks took most jobs. slot_balance.py moves these slots once a day towards the desks that deliver (see 'rebalance'). Research departments (squares, erdos, prize, bsd, rh) work idea cards from the idea bank (lab_ideas.py), best value x odds / cost first; the Director's Office refills the bank from the lab notebook. pool.max_wait_hours: a job that has waited longer starts before higher-priority departments.",
+  "_note": "Millennium Lab: one bot per department. Lab jobs run in parallel in lab_pool.py (pool.workers at once, OpenCode and Copilot CLI), not in the one-at-a-time Cairn autopilot. slots = jobs a department may have open at once; every_hours = minimum gap between its jobs; paused = true stops it. Base slots (2026-11-25, Juwen): Packing Shop 3, Erdos Bench 3, Bounty Hunters 2 - from 11-14 to 11-25 only one result went past a reproduction while the Packing Shop's internal checks took most jobs. slot_balance.py moves these slots once a day towards the desks that deliver (see 'rebalance'). Research departments (squares, erdos, prize, bsd, rh) work idea cards from the idea bank (lab_ideas.py), best value x odds / cost first; the Director's Office refills the bank from the lab notebook. pool.max_wait_hours: a job that has waited longer starts before higher-priority departments. Flagship (2026-11-25): one programme worked lemma by lemma from a ledger (flagship.py); a lemma is proved only by the Lean gate (lean_gate.py). The Zeta Desk is paused (RH proved by Alpoge, Nov 2026).",
   "max_open": 18,
   "target_steps_per_day": 24,
   "rebalance": {
@@ -38,6 +38,16 @@
       "brief": "You are the lab's principal investigator for the focus department named below. You do not compute results: you decide what that department tries next. Read the LAB MEMORY in this prompt, then the full notebook and the idea bank (read-only; their paths are at the top of the lab memory), the newest files in lab_results/, review_notes/ and review_panel/ for that department, and for the packing department prize_work/squares-in-squares/best_score.json ('holders' = how many n each strategy holds). First do the bank hygiene the LAB MEMORY asks for: every card it lists gets either a rewrite in 'cards' under the same id (your own value, odds and cost, a verifier and a kill test) or an entry in 'kill' with the reason. Hygiene rewrites do not count towards your new ideas. Then write director_notes/<job id>.md with three parts. (1) FRONTIER: a table of the best published result with its source, the lab's own value, and the gap. Every row cites its source; where your search finds none, write 'frontier unknown' with the search terms you used, never a trivial bound as if it were the frontier, and count a result as past the frontier only if it does not already follow from published theorems. (2) POST-MORTEM: what the finished jobs really established, which were reproductions or duplicates of each other, and why the failures failed. A notebook line 'internal, worker claimed extension' is a lead, not a result: it came from a card that makes no frontier claim, so if it names a published value it passed, write a frontier card that confirms it. (3) CANDIDATES: at least 8 ideas from at least 3 different generators - gap analysis against the frontier, transfer of a method from another field, inverting a failure, combining two half-wins, scaling up a win, the newest literature - each with its strongest objection. Keep the best 3 to 6. Each kept idea must fit one job (under 90 minutes), be concrete enough to start without questions, and name an independent verifier, a kill criterion testable in 5 minutes, value (0-10: what it is worth if it works), odds (0-1) and cost (jobs). Value scale: 9-10 beyond the published frontier, something a specialist would cite; 7-8 extends the frontier in range, precision or method; 4-6 a tool, dataset or bound that several later jobs need; 1-3 a reproduction, or a gain on one small case. Put the kept ideas in 'cards' of your result file and ideas the evidence has refuted in 'kill' (card id + reason). \"repeat\": true marks a programme that many jobs can run on different targets; \"frontier\": true means the card only counts as worked when a result passes the published frontier (use false for reference, tooling or scoreboard cards); set 'topic_id' only for a card about one catalogue problem."
     },
     {
+      "id": "flagship",
+      "name": "Flagship",
+      "bot": "Alpoge-style",
+      "problem": "Erdos #86: decide f(7)",
+      "role": "One problem, one lemma per job, nothing counts until Lean or a checked proof certificate says so",
+      "color": 6,
+      "slots": 2,
+      "brief": "You work the lab's flagship programme, one lemma at a time, like a mathematician working with a proof assistant. Read prize_work/flagship-erdos-86-f7/PLAN.md and ledger.json first. Your lemma is below. First write its exact statement. Then prove it: Lean 4 + Mathlib is installed (Lake project prize_work/lean, Lean 4.32.0; put your files in prize_work/flagship-erdos-86-f7/lean/ and check each with `python prize_work/lean/check_claim.py <file>` until it says checked - no sorry, no admit, no new axioms). For computational lemmas use pysat (CaDiCaL/Glucose with proof output) or OR-Tools CP-SAT, with symmetry breaking you can justify, keep every proof file, and check UNSAT proofs with an independent checker; state the encoding in Lean. Work in small proved steps; if the lemma is too big, prove what you can and list at most 3 smaller lemmas in proposed_lemmas. If the lemma is false, show the counterexample. Notes go to prize_work/flagship-erdos-86-f7/notes/<job id>.md. Never claim the prize or post anywhere."
+    },
+    {
       "id": "bsd",
       "name": "Murmuration Desk",
       "bot": "Ada",
@@ -55,7 +65,9 @@
       "role": "Zero statistics: finite-height corrections, BBLM amplitude, k-fit",
       "color": 5,
       "brief": "Continue the RH thread. Read rh_project/FINDINGS.md and roadmap.json RH first. Work the idea card below (if there is none, the next open roadmap item). Add the dated result line to rh_project/FINDINGS.md under '## Automated runs'.",
-      "every_hours": 20
+      "every_hours": 20,
+      "paused": true,
+      "paused_why": "2026-11-25: the Riemann Hypothesis (and GRH for Dirichlet L-functions) was announced proved by Levent Alpoge with Claude on 2026-11-20, formalised in Lean and certified by the Lean FRO and Mathlib on 2026-11-21 (aiXiv 2611.02203). The desk's slot goes to the Flagship."
     },
     {
       "id": "erdos",
@@ -94,7 +106,7 @@
       "problem": "Navier-Stokes, Yang-Mills, P vs NP, Hodge",
       "role": "Reads the week's new papers on the four problems the lab does not compute on",
       "color": 6,
-      "brief": "Read the newest digest in automation/digests/ and pick the 3 most substantial new papers on Navier-Stokes, Yang-Mills, P vs NP or Hodge. For each write a 6-10 line brief in scout_notes/<date>.md: claim, method, status (preprint / peer reviewed / known to have gaps), and whether anything is checkable by computation here. Flag crank or unrefereed 'proofs' as such.",
+      "brief": "Read the newest digest in automation/digests/ and pick the 3 most substantial new papers on Navier-Stokes, Yang-Mills, P vs NP or Hodge. For each write a 6-10 line brief in scout_notes/<date>.md: claim, method, status (preprint / peer reviewed / known to have gaps), and whether anything is checkable by computation here. Flag crank or unrefereed 'proofs' as such. Standing item since 2026-11-25: track the Alpoge-Buckmaster Navier-Stokes finite-time blow-up claim (no external force; discretely self-similar profile). Report whether its numerical certificate and interval-arithmetic verification have been released and checked, and any expert response. Also note what the Alpoge RH/GRH Lean proof means for the BSD desk.",
       "every_hours": 160
     },
     {

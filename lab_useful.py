@@ -71,6 +71,31 @@ def is_strong(job):
     return _first_word(job.get("novelty")) in STRONG
 
 
+LEAN_GATE = HERE / "logs" / "lean_gate.json"
+MACHINE_CHECKED = ("checked", "kernel_trust")
+
+
+def lean_verdicts(path=None):
+    """{job id: verdict} from lean_gate.py (checked, kernel_trust, sorry, failed, pending)."""
+    try:
+        return json.loads(Path(path or LEAN_GATE).read_text(encoding="utf-8-sig")).get("jobs", {}) or {}
+    except (OSError, ValueError, AttributeError):
+        return {}
+
+
+def is_verified(job, verdicts=None):
+    """Machine-checked (Juwen, 2026-11-25): a Packing Shop result is checked by its strict validator (sis.py);
+    every other result needs its Lean claims checked by the Lean gate."""
+    if job.get("dept") == "squares":
+        return True
+    verdicts = lean_verdicts() if verdicts is None else verdicts
+    return verdicts.get(str(job.get("id"))) in MACHINE_CHECKED
+
+
+def is_verified_strong(job, verdicts=None):
+    return is_strong(job) and is_verified(job, verdicts)
+
+
 def write_index(path, queue_path=None):
     """Writes the list of useful results as one private note (newest first). Returns the count, 0 if not written."""
     found = sorted(useful_jobs(queue_path or QUEUE), key=lambda job: str(job.get("finished") or ""), reverse=True)

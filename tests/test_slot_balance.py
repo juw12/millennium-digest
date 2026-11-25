@@ -63,7 +63,10 @@ def test_productive_desk_grows():
 
 
 # ---------------------------------------------------------------- record and plan
-def test_strong_needs_referee_and_panel_pass_and_strong_novelty():
+def test_strong_needs_referee_and_panel_pass_and_strong_novelty(monkeypatch):
+    import lab_useful
+    monkeypatch.setattr(lab_useful, "lean_verdicts", lambda path=None: {"e1": "checked", "e2": "checked",
+                                                                         "e3": "checked", "old": "checked"})
     jobs = [
         finished_job("e1", "erdos", "2026-11-24", strong=True),
         finished_job("e2", "erdos", "2026-11-24", strong=True),  # no panel pass
@@ -191,3 +194,10 @@ def test_plan_written_by_powershell_with_a_bom_is_read(tmp_path, monkeypatch):
     plan.write_bytes(b"\xef\xbb\xbf" + json.dumps({"date": "2026-11-25", "slots": {"squares": 3}}).encode())
     monkeypatch.setattr(slot_balance, "PLAN", plan)
     assert slot_balance.load_plan(config(), TODAY) == {"squares": 3}
+
+
+def test_strong_without_a_lean_check_does_not_count(monkeypatch):
+    import lab_useful
+    monkeypatch.setattr(lab_useful, "lean_verdicts", lambda path=None: {"e1": "sorry"})
+    jobs = [finished_job("e1", "erdos", "2026-11-24", strong=True), panel(["e1"], "2026-11-24")]
+    assert slot_balance.desk_record(jobs, ["erdos"], "2026-11-18")["erdos"]["strong"] == 0

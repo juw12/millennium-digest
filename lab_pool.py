@@ -61,7 +61,8 @@ COPILOT = Path(os.path.expandvars(r"%LOCALAPPDATA%\GitHubCopilotCLI\copilot.exe"
 OPEN = ("needs_ai", "running")
 # The Referee comes right after the Director: it holds one slot, and a claim nobody re-ran is what every later
 # idea would be built on (2026-11-10: 83 finished results waited for it, 38 of them claiming progress).
-PRIORITY = ["director", "review", "squares", "erdos", "panel", "prize", "writer", "tools", "bsd", "rh", "scout"]
+PRIORITY = ["director", "flagship", "review", "squares", "erdos", "panel", "prize", "writer", "tools", "bsd", "rh",
+            "scout"]
 INFRASTRUCTURE = ("copilot not logged in", "copilot out of quota", "copilot offline",
                   "no connection")  # not the job's fault
 DETACHED = 0x00000008 | 0x00000200 | 0x08000000 | 0x00000020  # DETACHED | NEW_GROUP | NO_WINDOW | NORMAL priority
@@ -490,6 +491,19 @@ def result_schema(job):
             '"next_ideas": [{"title": "...", "idea": "...", "why": "...", "verifier": "...", "kill": "...", '
             '"value": 0-10, "odds": 0-1, "cost": 1}]',
         ]
+    if dept in lab_ideas.FRONTIER_DEPTS or dept == "flagship":
+        fields.append('"lean_claims": ["prize_work/<...>.lean files that state and prove your key claim, no sorry; '
+                      'run python prize_work/lean/check_claim.py <file> first - the lab re-checks every listed file and '
+                      'a result without a checked claim does not count as strong"]')
+    if dept == "flagship":
+        fields += [
+            '"novelty": "internal" | "reproduction" | "extension" | "new" | "negative"',
+            '"lemma_status": "proved" | "partial" | "refuted" | "blocked" - your own reading; only the Lean gate '
+            'marks the ledger',
+            '"proposed_lemmas": [{"title": "...", "statement": "exact statement", "kind": "lean" | "compute" | '
+            '"literature", "deliver": "path"}] - at most 3 smaller lemmas that would finish yours, only if you could '
+            'not',
+        ]
     if dept == "squares":
         fields.append('"strategy": "<NAME of your strategy file, if you wrote one>"')
     if job.get("candidates"):
@@ -704,6 +718,9 @@ def merge_results(queue):
         for key in ("files", "review", "panel", "panel_verdict"):  # "reviewed" is the Referee's flag, not a worker's
             if key in data:
                 job[key] = data[key]
+        if isinstance(data.get("lean_claims"), list):  # judged by lean_gate.py on the files' bytes, not trusted
+            job["lean_claims"] = [str(claim)[:200] for claim in data["lean_claims"][:12]
+                                  if str(claim).strip().endswith(".lean")]
         data.pop("claimed_novelty", None)  # only the lab writes this field
         # the lab's own lowering is redone from every new file; a class the Referee set stands
         earlier = None if job.get("referee") else job.pop("claimed_novelty", None)

@@ -85,14 +85,15 @@ def _finished(job):
 def desk_record(jobs, depts, since):
     """{dept: {"finished": n, "strong": n}}: jobs finished at or after `since` (ISO text), and the strong ones."""
     useful = {str(job.get("id")) for job in lab_useful.useful_from(jobs)}
+    verdicts = lab_useful.lean_verdicts()
     record = {dept: {"finished": 0, "strong": 0} for dept in depts}
     for job in jobs:
         dept = _dept(job)
         if dept not in record or job.get("status") not in ("done", "needs_review") or _finished(job) < since:
             continue
         record[dept]["finished"] += 1
-        if str(job.get("id")) in useful and lab_useful.is_strong(job):
-            record[dept]["strong"] += 1
+        if str(job.get("id")) in useful and lab_useful.is_verified_strong(job, verdicts):
+            record[dept]["strong"] += 1  # machine-checked only: Lean gate, or the Packing Shop's validator
     return record
 
 

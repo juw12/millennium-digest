@@ -23,6 +23,7 @@ if str(HERE) not in sys.path:  # lab.py is also imported by scripts that run fro
     sys.path.insert(0, str(HERE))
 import lab_ideas  # noqa: E402
 import slot_balance  # noqa: E402
+import flagship  # noqa: E402
 
 ROOT = HERE.parent
 QUEUE = ROOT / "research_queue.json"
@@ -269,6 +270,13 @@ def plan_job(dept, jobs, today, number, config=None, frontier_only=False):
         state = f"current best valid score {best['score']:.4f}" if best.get("valid") else "no valid solver yet"
         title = title or f"{dept['name']}: improve the Squares in Squares score ({state})"
         topic = f" Trivial-grid baseline score: {squares_baseline():.4f}. Status: {state}.{carry}"
+    elif dept_id == "flagship":  # one lemma of the flagship ledger (flagship.py); nothing open = an empty slot
+        ledger = flagship.load()
+        lemma = flagship.next_lemma(jobs, ledger)
+        if not lemma:
+            return None
+        title, topic = flagship.job_text(lemma, ledger, jobs)
+        extra = {"lemma_id": lemma["id"]}
     elif dept_id == "director":
         departments = (config or {}).get("departments", [])
         earlier = [job for job in jobs if job.get("dept") == "director"]
@@ -317,7 +325,8 @@ def plan_job(dept, jobs, today, number, config=None, frontier_only=False):
         "status": "needs_ai",
         "not_before": today.isoformat(),
         "queued": dt.datetime.now().isoformat(timespec="seconds"),
-        "why": dept["brief"] + topic + (RESEARCH_RULES if dept_id in lab_ideas.CARD_DEPTS else SERVICE_RULES),
+        "why": dept["brief"] + topic + (RESEARCH_RULES if dept_id in lab_ideas.CARD_DEPTS + ("flagship",)
+                                         else SERVICE_RULES),
         **extra,
     }
 
