@@ -113,6 +113,8 @@ def settings():
         "engines": pool.get("engines", ["opencode", "copilot"]),
         "engine_weights": pool.get("engine_weights", {}),
         "talos_dir": pool.get("talos_dir", DEFAULT_TALOS_DIR),
+        "dept_engines": pool.get("dept_engines", {}),
+        "reserved": pool.get("reserved", {}),
         "opencode_model": pool.get("opencode_model", DEFAULT_OPENCODE_MODEL),
         "timeout_minutes": int(pool.get("timeout_minutes", 100)),
         "max_attempts": int(pool.get("max_attempts", 2)),
@@ -930,13 +932,21 @@ def fill():
     slot = 0
     turn = len(state)  # read once: start() adds to the state while this tick runs
     changed = False
+    reserved = {dept: int(count) for dept, count in (config.get("reserved") or {}).items()}
+    in_reserve = {dept: sum(1 for job_id in alive_ids if job_id in open_ids and job_id.startswith(f"lab_{dept}_"))
+                  for dept in reserved}
     for job in candidates:
-        if running >= config["workers"]:
-            break
+        dept = lab.job_dept(job)
+        reserve = dept in reserved and in_reserve[dept] < reserved[dept]
+        if running >= config["workers"] and not reserve:
+            continue  # the cap is reached; only a department with a reserved slot (the Flagship) may still start
         history = state.get(job["id"], {}).get("attempts", [])
         engines = config["engines"]
+        preferred = (config.get("dept_engines") or {}).get(dept)
         if history:  # a retry always switches engine
             engine = next((e for e in engines if e != history[-1]["engine"]), engines[0])
+        elif preferred in engines:
+            engine = preferred  # e.g. the Flagship runs on Talos first (Juwen, 2026-11-25)
         elif config["opencode_first"] and "opencode" in engines:
             engine = "opencode"  # behind the daily token target: Copilot only takes retries
         else:
@@ -961,7 +971,10 @@ def fill():
             continue
         write_json(STATE, state)  # at once: a tick that dies later must not lose track of a running worker
         job["pool"] = {"engine": engine, "started": state[job["id"]]["started"]}
-        running += 1
+        if reserve:
+            in_reserve[dept] += 1  # a reserved slot does not use up a shared one
+        else:
+            running += 1
         slot += 1
         changed = True
     if changed:

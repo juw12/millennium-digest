@@ -34,7 +34,7 @@ STEP_MIN = 10  # projection step = the pool's tick
 
 LINE = re.compile(r"^(\d{4}-\d{2}-\d{2} \d{2}:\d{2})\s+(.*)$")
 START = re.compile(r"^start (\S+) on \w+")
-END = re.compile(r"^(\S+): (?:opencode|copilot) (exited|timeout|stopped waiting|no connection|copilot )")
+END = re.compile(r"^(\S+): (?:opencode|copilot|talos) (exited|timeout|stopped waiting|no connection|copilot )")
 VERDICT = re.compile(r"^(\S+): idea \S+ (worked|partial|failed|blocked)$")
 
 

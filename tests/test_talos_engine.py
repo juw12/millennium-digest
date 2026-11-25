@@ -57,3 +57,54 @@ def test_turns_continue_across_ticks():
         engines.append(lab_pool.pick_engine(["opencode", "talos"], {"opencode": 2, "talos": 1}, len(state) + 0))
         state[f"job{tick}"] = {"attempts": []}
     assert engines.count("talos") == 2
+
+
+def _fill(tmp_path, monkeypatch, jobs, alive_ids, workers=3):
+    """Runs lab_pool.fill() on a fake queue; returns [(job id, engine)] it started."""
+    queue = tmp_path / "queue.json"
+    queue.write_text(json.dumps({"jobs": jobs}), encoding="utf-8")
+    state = {job_id: {"pid": 1000 + index, "attempts": []} for index, job_id in enumerate(alive_ids)}
+    (tmp_path / "state.json").write_text(json.dumps(state), encoding="utf-8")
+    started = []
+
+    def start(job, engine, state):
+        state[job["id"]] = {"pid": 1, "engine": engine, "started": "2026-11-25T09:00:00", "attempts": []}
+        started.append((job["id"], engine))
+
+    monkeypatch.setattr(lab_pool, "QUEUE", queue)
+    monkeypatch.setattr(lab_pool, "STATE", tmp_path / "state.json")
+    monkeypatch.setattr(lab_pool, "settings", lambda: {
+        "workers": workers, "engines": ["opencode", "talos"], "engine_weights": {}, "opencode_first": False,
+        "max_attempts": 2, "max_wait_hours": 1, "dept_engines": {"flagship": "talos"}, "reserved": {"flagship": 2},
+        "talos_dir": "x"})
+    monkeypatch.setattr(lab_pool, "alive", lambda pid: pid >= 1000)
+    monkeypatch.setattr(lab_pool, "model_reachable", lambda: True)
+    monkeypatch.setattr(lab_pool, "drive_has_room", lambda: True)
+    monkeypatch.setattr(lab_pool, "talos_usable", lambda: True)
+    monkeypatch.setattr(lab_pool, "start", start)
+    monkeypatch.setattr(lab_pool, "save_queue_merged", lambda queue, original: None)
+    lab_pool.fill()
+    return started
+
+
+def _job(job_id, dept):
+    return {"id": job_id, "dept": dept, "status": "needs_ai", "queued": "2026-11-25T08:00:00"}
+
+
+def test_flagship_starts_on_talos_in_its_reserved_slots_when_the_cap_is_full(tmp_path, monkeypatch):
+    busy = [f"lab_squares_261125_{i}" for i in range(7)]
+    jobs = [_job(job_id, "squares") for job_id in busy]
+    jobs += [_job("lab_flagship_261125_1", "flagship"), _job("lab_flagship_261125_2", "flagship"),
+             _job("lab_flagship_261125_3", "flagship"), _job("lab_erdos_261125_9", "erdos")]
+    for job in jobs[:7]:
+        job["status"] = "running"
+    started = _fill(tmp_path, monkeypatch, jobs, busy)
+    assert started == [("lab_flagship_261125_1", "talos"), ("lab_flagship_261125_2", "talos")]
+
+
+def test_other_desks_still_respect_the_cap(tmp_path, monkeypatch):
+    busy = [{**_job(f"lab_squares_261125_{i}", "squares"), "status": "running"} for i in range(3)]
+    started = _fill(tmp_path, monkeypatch, busy + [_job("lab_erdos_261125_9", "erdos")], [job["id"] for job in busy])
+    assert started == []  # 3 running = the cap
+    started = _fill(tmp_path, monkeypatch, busy[:1] + [_job("lab_erdos_261125_9", "erdos")], [busy[0]["id"]])
+    assert [job_id for job_id, _ in started] == ["lab_erdos_261125_9"]

@@ -180,7 +180,13 @@
       "talos": 1
     },
     "talos_dir": "E:\\Projects\\talos",
-    "_engine_note": "2026-11-25: Talos (juw12/talos, OpenCode + Hermes agent) replaces Copilot as the second engine: Copilot's personal-plan API is blocked by the office proxy since 11-12. Talos uses the AICC gateway (talos.json in the lab folder, key from PEGA_API_KEY), so AICC records its tokens like OpenCode's. engine_weights: new jobs go OpenCode, OpenCode, Talos in turn; a retry switches engine. workers 8 -> 10 outside work hours (night timeout rate was 4 %); the daily report shows jobs and timeouts per engine, so the trial can be judged."
+    "_engine_note": "2026-11-25: Talos (juw12/talos, OpenCode + Hermes agent) replaces Copilot as the second engine: Copilot's personal-plan API is blocked by the office proxy since 11-12. Talos uses the AICC gateway (talos.json in the lab folder, key from PEGA_API_KEY), so AICC records its tokens like OpenCode's. engine_weights: new jobs go OpenCode, OpenCode, Talos in turn; a retry switches engine. workers 8 -> 10 outside work hours (night timeout rate was 4 %); the daily report shows jobs and timeouts per engine, so the trial can be judged. dept_engines: the Flagship's first attempt runs on Talos (a retry on OpenCode). reserved: the Flagship has 2 slots of its own outside workers, so its lemmas never wait behind the daytime cap (Juwen: 'make talos do the proving now').",
+    "dept_engines": {
+      "flagship": "talos"
+    },
+    "reserved": {
+      "flagship": 2
+    }
   },
   "disk_guard": {
     "_note": "disk_guard.py: finished scratch is removed after grace_hours (dossier_grace_hours inside prize_work). Under low_free_gb free the pressure_* times apply and cold build caches go; under stop_free_gb the pool starts no new jobs.",
