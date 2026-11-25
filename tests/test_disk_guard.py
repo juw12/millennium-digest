@@ -57,6 +57,11 @@ def build(base):
     write(lab / ".scratch_old" / "sub" / "notes_copy.md", (lab / "prize_work" / "d1" / "notes.md").read_bytes())
     subprocess.run(["cmd", "/c", "mklink", "/J", str(lab / ".scratch_old" / "link"), str(outside)], check=True,
                    capture_output=True)
+    # a panel's copy tree that links back to the folder it sits in (a circle), and a link that is no circle
+    (lab / "review_panel" / "p1" / "wt").mkdir(parents=True)
+    for name, target in (("review_panel", lab / "review_panel"), ("dossier", lab / "prize_work" / "d1")):
+        subprocess.run(["cmd", "/c", "mklink", "/J", str(lab / "review_panel" / "p1" / "wt" / name), str(target)],
+                       check=True, capture_output=True)
     write(lab / ".scratch" / "panel_261119_16" / "clone.bin", os.urandom(100_000))
     write(lab / ".scratch" / "loose.bin", os.urandom(100_000))
     write(lab / "prize_work" / "d1" / ".scratch_j1" / "work.bin", os.urandom(100_000))
@@ -78,10 +83,25 @@ def main():
         dry = disk_guard.full_pass(lab, logs, LIMITS, dry_run=True, now=now + 7 * HOUR, say=lambda line: None)
         check("dry run reports space", dry["freed"] > 0)
         check("dry run removes nothing", (lab / ".scratch_old" / "big.bin").exists() and not logs.exists())
+        loop = lab / "review_panel" / "p1" / "wt" / "review_panel"
+        check("a link to its own parent folder is found", disk_guard.link_loops(lab) == [str(loop)],
+              str(disk_guard.link_loops(lab)))
+        check("dry run reports the circle and leaves it", dry["steps"]["link_loops"] == {"found": 1, "removed": 0}
+              and os.path.isjunction(loop))
 
         fresh = disk_guard.full_pass(lab, logs, LIMITS, now=now + 1 * HOUR, say=lambda line: None)
         check("inside the waiting time nothing is removed", fresh["freed"] == 0 and
               (lab / ".scratch_old" / "big.bin").exists() and (lab / "review_panel" / "p1" / "copy" / "data.bin").exists())
+
+        check("the circle is removed at once, without a waiting time", not os.path.lexists(loop)
+              and fresh["steps"]["link_loops"] == {"found": 1, "removed": 1})
+        check("only the link went: the folder it pointed at is whole",
+              (lab / "review_panel" / "p1" / "report.md").read_text() == "panel report"
+              and (lab / "review_panel" / "p1" / "copy" / "own.bin").exists())
+        check("a link that is no circle stays", os.path.isjunction(lab / "review_panel" / "p1" / "wt" / "dossier")
+              and (lab / "prize_work" / "d1" / "notes.md").exists())
+        check("the removed link is logged", "its own parent folder" in
+              (logs / "disk_guard_removed.log").read_text(encoding="utf-8"))
 
         # a byte copy keeps the old write time of its source; its creation time is new, so it still counts as fresh
         aged = lab / ".scratch_old" / "big.bin"

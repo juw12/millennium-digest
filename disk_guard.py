@@ -21,6 +21,10 @@ is never followed (only the link is removed), and a file that is in use is left 
  4. Only when free space is under `low_free_gb`: the shorter `pressure_*` waiting times apply, and build
     caches that can be downloaded again (.lake folders) and were not touched for `cache_cold_days` go too.
 
+ 5. Always: a link (junction) that points at a folder it sits inside. Such a link makes every tool that follows
+    links walk in a circle (2026-11-25: one panel copy tree linked back to review_panel, and git and OpenCode's
+    snapshot listed 840,000 file names instead of 220,000 on every step). Only the link goes.
+
 Under `stop_free_gb` the pool starts no new jobs (lab_pool.fill asks pool_may_start) and one e-mail is sent.
 Limits live in lab_departments.json under "disk_guard"; the defaults are below.
 """
@@ -183,6 +187,30 @@ def remove_link(path):
         except OSError:
             continue
     return False
+
+
+def link_loops(root):
+    """Links below root that point at one of their own parent folders (or at themselves): walking one never ends."""
+    loops = []
+    stack = [str(root)]
+    while stack:
+        current = stack.pop()
+        try:
+            entries = list(os.scandir(current))
+        except OSError:
+            continue
+        home = key_of(os.path.realpath(current)) + os.sep  # realpath on both sides: short 8.3 names, other links
+        for entry in entries:
+            try:
+                if is_link(entry):
+                    target = key_of(os.path.realpath(entry.path))
+                    if home.startswith(target + os.sep) or key_of(os.path.join(home, entry.name)) == target:
+                        loops.append(entry.path)
+                elif entry.is_dir(follow_symlinks=False) and entry.name not in NEVER_ENTER:
+                    stack.append(entry.path)
+            except OSError:
+                continue
+    return loops
 
 
 def remove_empty(folders, top=None):
@@ -531,6 +559,14 @@ def full_pass(root=ROOT, log_dir=None, limits=None, dry_run=False, now=None, say
                          dry_run)
     summary["steps"]["panel_copies"] = panel
     say(f"review_panel copies: {panel['removed']} files, {panel['freed'] / GB:.2f} GB")
+    loops = link_loops(root)
+    summary["steps"]["link_loops"] = {"found": len(loops), "removed": 0}
+    for path in loops:
+        if not dry_run and remove_link(path):
+            summary["steps"]["link_loops"]["removed"] += 1
+            removed_log.append(f"link that pointed at its own parent folder\t{path}")
+    if loops:
+        say(f"links that pointed at their own parent folder: {len(loops)} ({', '.join(loops[:3])})")
     if removed_log:
         log_dir.mkdir(parents=True, exist_ok=True)
         with open(log_dir / "disk_guard_removed.log", "a", encoding="utf-8") as handle:
