@@ -1,8 +1,10 @@
 """Daily report to Juwen (task "Millennium daily report", 07:30): what the lab did yesterday, in one email.
 
 Sections: flagship ledger (the one result that matters), machine-checked results, all output by desk, the Kaggle
-score, tokens, slot plan, and anything that went wrong (outages, the PC off, failures). Every number is read from
-the lab's own files; nothing is estimated.
+score, tokens, slot plan, anything that went wrong (outages, the PC off, failures), and the usage part from
+usage_report.py: tokens, jobs and results per AI app and per model. Every number is read from the lab's own
+files; nothing is estimated. The mail is HTML in the look of the AICC leaderboard mail (cards, tables, 14-day
+token bars); the note and the history file hold the same text as Markdown.
 
 Goes to: the email relay (juwpegatron@gmail.com, notify_juwen.py), the Obsidian note
 notes/millennium-daily-report.md (rewritten daily, so Cairn finds it), and logs/daily_reports/<date>.md (history).
@@ -23,6 +25,7 @@ if str(HERE) not in sys.path:
     sys.path.insert(0, str(HERE))
 import flagship  # noqa: E402
 import lab_useful  # noqa: E402
+import usage_report  # noqa: E402
 
 ROOT = HERE.parent
 QUEUE = ROOT / "research_queue.json"
@@ -39,8 +42,8 @@ def _read(path, default):
 
 
 def _day(job):
-    value = job.get("finished")
-    return value[:10] if isinstance(value, str) else ""
+    """The local day a job finished on (the queue stores some finish times in UTC)."""
+    return usage_report.local_day(job.get("finished"))
 
 
 def _gaps(day, minutes=60):
@@ -60,35 +63,22 @@ def _gaps(day, minutes=60):
     return [(a, b) for a, b in zip(points, points[1:]) if (b - a).total_seconds() > minutes * 60]
 
 
-def _engine_timeouts(day):
-    """Engine names of the workers that hit the pool's time limit on `day` (from pool.log)."""
-    try:
-        lines = (LOGS / "pool.log").read_text(encoding="utf-8", errors="replace").splitlines()
-    except OSError:
-        return []
-    found = []
-    for line in lines:
-        match = re.match(r"(\d{4}-\d{2}-\d{2}) \S+\s+\S+: (\S+) timeout after", line)
-        if match and match.group(1) == day:
-            found.append(match.group(2))
-    return found
-
-
-def build(day=None):
-    """(subject, markdown text) for `day` (default: yesterday)."""
+def build(day=None, usage=None, parts=None):
+    """(subject, markdown text) for `day` (default: yesterday). `usage` = usage_report.collect(day) when the
+    caller has it (the usage part is left out when it is None); `parts`, when given, receives the headline and
+    the cards for the HTML mail."""
     day = day or (dt.date.today() - dt.timedelta(days=1)).isoformat()
     jobs = _read(QUEUE, {}).get("jobs", [])
     verdicts = lab_useful.lean_verdicts()
     finished = [job for job in jobs if _day(job) == day and job.get("status") in ("done", "needs_review")]
-    failed = [job for job in jobs if _day(job) == day and job.get("status") == "failed"]
+    marked_failed = set(usage_report.pool_events(day, LOGS / "pool.log")["failed"])  # failed jobs have no finish time
+    failed = [job for job in jobs if job.get("status") == "failed"
+              and (str(job.get("id")) in marked_failed or _day(job) == day)]
     useful_ids = {job["id"] for job in lab_useful.useful_from(jobs)}
     verified_strong = [job for job in finished if job["id"] in useful_ids
                        and lab_useful.is_verified_strong(job, verdicts)]
     claimed_strong = [job for job in finished if lab_useful.is_strong(job)]
     desks = collections.Counter(job.get("dept") or "other" for job in finished)
-    engines = collections.Counter((job.get("pool") or {}).get("engine") or "?" for job in finished)
-    engine_failed = collections.Counter((job.get("pool") or {}).get("engine") or "?" for job in failed)
-    timeouts = collections.Counter(_engine_timeouts(day))
     ledger = flagship.load() or {"lemmas": []}
     info = flagship.summary(ledger)
     pace = _read(LOGS / "token_pace.json", {})
@@ -121,9 +111,6 @@ def build(day=None):
     lines += ["", "## Output"]
     lines.append("- Finished by desk: " + (", ".join(f"{name} {count}" for name, count in desks.most_common()) or "none"))
     lines.append(f"- Failed: {len(failed)}")
-    lines.append("- By engine (finished / failed / timeouts): " + (", ".join(
-        f"{name} {engines[name]}/{engine_failed[name]}/{timeouts[name]}"
-        for name in sorted(set(engines) | set(engine_failed) | set(timeouts))) or "none"))
     if best.get("valid"):
         week = (dt.date.fromisoformat(day) - dt.timedelta(days=7)).isoformat()
         older = [scores[key] for key in sorted(scores) if key <= week]
@@ -140,6 +127,22 @@ def build(day=None):
     if failed:
         problems.append(f"- {len(failed)} failed job(s): " + ", ".join(job["id"] for job in failed[:6]))
     lines += problems or ["- none"]
+    if usage is not None:
+        try:
+            lines += ["", usage_report.markdown(usage, jobs).rstrip()]
+        except Exception as error:  # the research part must go out even when the usage part cannot be written
+            lines += ["", "## AI apps and models", f"- could not be written: {error!r}"]
+    if parts is not None:
+        switching = (usage or {}).get("switching") or {}
+        parts.update(headline=headline, days=pace.get("days") or {}, target=pace.get("target") or 0, cards=[
+            ("Flagship lemmas proved", f"{info['proved']} / {info['total']}"),
+            ("Machine-checked results", len(verified_strong)),
+            ("Jobs finished / failed", f"{len(finished)} / {len(failed)}"),
+            ("Tokens", usage_report.short(tokens) if tokens else "-"),
+            ("AICC recorded", usage_report.short(((usage or {}).get("aicc") or {}).get("total") or None)),
+            ("Workers that left the pinned model", f"{switching['switched']} / {switching['sessions']}"
+             if switching.get("sessions") else "-"),
+        ])
     lines += ["", "_Written by daily_report.py from the lab's own files. No claim here is a proof of a prize problem; "
               "a lemma counts only when the Lean gate marks it._"]
     subject = f"Daily {day}: {headline}"
@@ -157,14 +160,27 @@ def save(day, text):
 
 def main():
     day = (dt.date.today() - dt.timedelta(days=1)).isoformat()
-    subject, text = build(day)
+    try:
+        usage = usage_report.collect(day)
+    except Exception:  # the usage part is extra: the research report goes out without it
+        usage = None
+    parts = {}
+    subject, text = build(day, usage, parts)
     if "--print" in sys.argv:
         print(subject)
         print(text)
         return
     save(day, text)
+    if usage is not None:
+        usage_report.save(usage)
     import notify_juwen
-    notify_juwen.notify(f"daily-report-{day}", subject, text.replace("**", ""), min_hours=0)
+    try:
+        body = usage_report.mail_html(day, parts["headline"], parts["cards"], text, parts["days"], parts["target"])
+        (HISTORY / f"{day}.html").write_text(body, encoding="utf-8")
+    except Exception:
+        body = None
+    if body is None or not notify_juwen.notify_html(f"daily-report-{day}", subject, body, min_hours=0):
+        notify_juwen.notify(f"daily-report-{day}", subject, text.replace("**", ""), min_hours=0)
 
 
 if __name__ == "__main__":

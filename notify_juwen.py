@@ -29,12 +29,17 @@ def _relay_sender():
 
 def notify(key, subject, text, min_hours=12):
     """Sends one short email to Juwen unless the same `key` was sent in the last `min_hours`. Returns True if sent."""
+    body = "<p>" + "</p><p>".join(html.escape(part) for part in text.strip().split("\n\n")) + "</p>"
+    body += "<p style='color:#666'>Sent automatically by the Millennium research automation on your PC.</p>"
+    return notify_html(key, subject, body, min_hours)
+
+
+def notify_html(key, subject, body, min_hours=12):
+    """notify() for a body that is already HTML (the daily report's cards and tables)."""
     state = json.loads(STATE_FILE.read_text(encoding="utf-8")) if STATE_FILE.exists() else {}
     last = state.get(key)
     if last and dt.datetime.now() - dt.datetime.fromisoformat(last) < dt.timedelta(hours=min_hours):
         return False
-    body = "<p>" + "</p><p>".join(html.escape(part) for part in text.strip().split("\n\n")) + "</p>"
-    body += "<p style='color:#666'>Sent automatically by the Millennium research automation on your PC.</p>"
     try:
         _relay_sender()(None, f"[Millennium] {subject}", body)
     except Exception as error:

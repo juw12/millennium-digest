@@ -173,5 +173,16 @@ def main(check=True, send=_send):
         LOCK.unlink(missing_ok=True)
 
 
+def aicc_snapshot():
+    """The gateway breaks tokens down by model for the current day only, so the day's record is saved on every
+    gate run (every 30 minutes) for usage_report.py. Never stops the gate."""
+    try:
+        import usage_report
+        usage_report.aicc_snapshot()
+    except Exception as error:
+        log(f"AICC snapshot failed: {error!r}")
+
+
 if __name__ == "__main__":
+    aicc_snapshot()
     main(check="--no-check" not in sys.argv)

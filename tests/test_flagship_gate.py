@@ -144,12 +144,16 @@ def test_plan_job_for_the_flagship(monkeypatch):
 def test_daily_report_reads_the_lab_files(tmp_path, monkeypatch):
     jobs = [job("f1", "F1", finished="2026-11-24T10:00:00", result="Cube.lean checked"),
             {"id": "s1", "dept": "squares", "status": "done", "finished": "2026-11-24T11:00:00"},
-            {"id": "x1", "dept": "erdos", "status": "failed", "finished": "2026-11-24T12:00:00"}]
+            {"id": "x1", "dept": "erdos", "status": "failed", "finished": "2026-11-24T12:00:00"},
+            {"id": "x2", "dept": "erdos", "status": "failed"},  # the pool gives a failed job no finish time
+            {"id": "x3", "dept": "erdos", "status": "failed"},  # failed on another day
+            {"id": "u1", "dept": "squares", "status": "done", "finished": "2026-11-23T23:30:00+00:00"}]
     (tmp_path / "queue.json").write_text(json.dumps({"jobs": jobs}))
     logs = tmp_path / "logs"
     logs.mkdir()
     (logs / "token_pace.json").write_text(json.dumps({"days": {"2026-11-24": 1516370374}}))
-    (logs / "pool.log").write_text("2026-11-24 00:05  tick\n2026-11-24 12:00  tick\n2026-11-25 00:01  tick\n")
+    (logs / "pool.log").write_text("2026-11-23 09:00  x3: marked failed\n2026-11-24 00:05  tick\n"
+                                  "2026-11-24 12:00  x2: marked failed\n2026-11-25 00:01  tick\n")
     book = ledger()
     book["lemmas"][1].update({"status": "proved", "verdict": "checked", "proved_at": "2026-11-24T10:05:00"})
     monkeypatch.setattr(daily_report, "QUEUE", tmp_path / "queue.json")
@@ -159,5 +163,6 @@ def test_daily_report_reads_the_lab_files(tmp_path, monkeypatch):
     monkeypatch.setattr(lab_useful, "lean_verdicts", lambda path=None: {})
     subject, text = daily_report.build("2026-11-24")
     assert "Flagship 1/4 lemmas proved (+1 yesterday: F1)" in subject
-    assert "[x] F1" in text and "1.52 B" in text and "Failed: 1" in text
+    assert "[x] F1" in text and "1.52 B" in text and "Failed: 2" in text
+    assert "x1, x2" in text and "x3" not in text  # dated by the finish time or by pool.log's "marked failed"
     assert "No pool activity 00:05-12:00" in text and "No pool activity 12:00-" in text
