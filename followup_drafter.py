@@ -9,6 +9,8 @@ Runs daily, indefinitely (Windows task "Millennium follow-up drafts"). For every
 Automatic follow-ups (no file needed): any contact whose email was SENT, who has not replied after 21 days and has
 no hand-written *_followup.txt, gets ONE short polite follow-up draft (subject "Re: <original>"). Never a second one.
 State (which follow-ups were drafted) is kept next to the outbox files, outside the public repo.
+The same daily run then works the outreach queue (outreach.run_queue): the next waiting spec in outbox/outreach/
+is sent if every rule in outreach_policy.json allows it; what happened is written to logs/outreach_queue.log.
 
   python followup_drafter.py            normal daily run
   python followup_drafter.py --status   print what would happen, change nothing
@@ -117,13 +119,38 @@ def plan(today):
     return state, rows
 
 
+def run_outreach_queue(status_only=False):
+    """The recurring outreach step. Never lets a failure here stop the follow-ups of the next day."""
+    log_file = Path(__file__).resolve().parent / "logs" / "outreach_queue.log"
+    try:
+        import outreach
+
+        lines = outreach.run_queue(status_only=status_only)
+    except Exception as error:
+        lines = [f"queue run failed: {error!r}"]
+    if status_only:
+        return lines
+    log_file.parent.mkdir(exist_ok=True)
+    with log_file.open("a", encoding="utf-8") as handle:
+        for line in lines or ["nothing is waiting"]:
+            handle.write(f"{dt.datetime.now():%Y-%m-%d %H:%M} {line}\n")
+    return lines
+
+
 def main():
     today = dt.date.today()
     state, rows = plan(today)
     if "--status" in sys.argv:
         for path, to, _, _, action, _ in rows:
             print(f"{row_key(path):45s} {to:40s} {action}")
+        for line in run_outreach_queue(status_only=True):
+            print("queue:", line)
         return
+    send_followups(today, state, rows)
+    run_outreach_queue()
+
+
+def send_followups(today, state, rows):
     due_rows = [r for r in rows if r[4] == "draft now"]
     if not due_rows:
         return

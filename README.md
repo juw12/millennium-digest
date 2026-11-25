@@ -12,9 +12,14 @@ A small personal research tool around the Clay Millennium Prize problems. It has
 2. **Outreach guard** (`outreach.py`): helps write to researchers without spamming them. It checks every
    draft against the rules in `outreach_policy.json` before opening a Gmail compose window, and keeps a
    ledger of who was contacted and when. Rules include: one recipient per email, at most 2 new contacts
-   per 30 days, 180 days between contacts with the same person, at most one follow-up, an AI-assistance
-   disclosure, a "no reply is needed" line, a specific question, and a citation of the person's own work.
-   Emails that pass every rule are sent automatically from Gmail (follow-ups, answers to replies and first contacts, at most 2 new people per 30 days); anything that fails a rule, or whose send Gmail does not confirm, stays a draft.
+   per 7 days and 8 per 30 days, 60 days before the same person hears of a new result, at most one
+   follow-up, one unanswered email per person, an AI-assistance disclosure, a "no reply is needed" line,
+   a specific question, and a citation of the person's own work. An email that only asks whether
+   something is known or right may go out before the claim is settled, if it says what is unchecked.
+   Outreach is recurring: specs wait in `outbox/outreach/`, the daily task sends the next one the rules
+   allow (`python outreach.py queue`), and once a week an AI session checks whether there is a new
+   checked result worth one question to one researcher. Anything that fails a rule waits; a send Gmail
+   does not confirm stays a draft.
 
 This is a hobby tool by an engineer, not a mathematician. It does not solve or claim progress on any
 Millennium problem.

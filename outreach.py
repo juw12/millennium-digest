@@ -1,4 +1,6 @@
-"""Non-spam expert outreach: rule-checked Gmail DRAFTS only (address from config.json), with a contact ledger.
+"""Non-spam expert outreach: every e-mail is checked against outreach_policy.json, then sent from Gmail
+(address from config.json) and written to a contact ledger. Outreach is recurring (2026-11-25): specs wait in
+outbox/outreach/ and the daily task sends the next one the rules allow.
 
 Commands
   python outreach.py status                       show the ledger and what is allowed next
@@ -8,8 +10,12 @@ Commands
   python outreach.py followups                    draft at most one polite follow-up per person when due
   python outreach.py open <address>               reopen the saved Gmail draft link for that person
   python outreach.py send <address>               send a logged draft from Gmail with its PDF (respects holds)
+  python outreach.py queue                        send the next waiting spec in outbox/outreach/ the rules allow
+  python outreach.py queue --status               list the waiting specs and what blocks each; change nothing
 
-Nothing is ever sent automatically: `send` only runs when Juwen asks for a specific, already-reviewed email.
+A spec is a JSON file with to, topic, subject, body and evidence (path to an EVIDENCE.json). Optional keys:
+_expert_entry (added to experts.json on the first run), _not_before (ISO date). The queue writes _sent,
+_drafted or _last_refusal back into the spec, so a file is never sent twice.
 """
 import datetime as dt
 import hashlib
@@ -20,8 +26,11 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 POLICY = json.loads((HERE / "outreach_policy.json").read_text(encoding="utf-8"))
-EXPERTS = json.loads((HERE / "experts.json").read_text(encoding="utf-8"))
+EXPERTS_FILE = HERE / "experts.json"  # private, not in the public repo: a fresh clone starts with nobody
+EXPERTS = json.loads(EXPERTS_FILE.read_text(encoding="utf-8")) if EXPERTS_FILE.exists() else {}
 LEDGER_FILE = HERE / "contacts_log.json"
+QUEUE_DIR = HERE.parent / "outbox" / "outreach"
+RESEARCH_QUEUE = HERE.parent / "research_queue.json"
 RESULTS_URL = "https://juw12.github.io/millennium-digest/results.html"
 NO_OBLIGATION_LINE = (
     "If this isn't something you have time for, no reply is needed, and I won't write again "
@@ -89,6 +98,10 @@ def check_rules(spec, ledger, is_follow_up=False):
         new_last_30 = [c for c in ledger["contacts"] if days_since(c["date"]) < 30 and not c.get("follow_up")]
         if len(new_last_30) >= POLICY["max_new_drafts_per_30_days"]:
             problems.append(f"{len(new_last_30)} new contacts in the last 30 days; limit {POLICY['max_new_drafts_per_30_days']}")
+        weekly_limit = POLICY.get("max_new_contacts_per_7_days")
+        new_last_7 = [c for c in new_last_30 if days_since(c["date"]) < 7]
+        if weekly_limit is not None and len(new_last_7) >= weekly_limit:
+            problems.append(f"{len(new_last_7)} new contacts in the last 7 days; limit {weekly_limit} (a steady pace, not a burst)")
         holds = [c for c in ledger["contacts"] if c.get("topic") == spec.get("topic") and c.get("hold_until")]
         for held in holds:
             if TODAY < dt.date.fromisoformat(held["hold_until"]) and held["to"] != to:
@@ -101,7 +114,15 @@ def check_rules(spec, ledger, is_follow_up=False):
             evidence = json.loads(Path(evidence_file).read_text(encoding="utf-8"))
             if not Path(evidence.get("preregistration", "")).exists():
                 problems.append("pre-registration file missing")
-            if not evidence.get("all_gates_passed"):
+            question = POLICY.get("question_mail", {})
+            if evidence.get("kind") == "question" and question.get("allowed_before_all_gates"):
+                # A question may go out before the claim is settled, but only as a question: the steps it
+                # rests on are checked, and the body says in plain words what nobody has checked.
+                if not evidence.get("question_gates_passed"):
+                    problems.append("question e-mail: the checks it rests on have not passed")
+                if not any(needle.lower() in body.lower() for needle in question.get("must_say_what_is_unchecked", [])):
+                    problems.append("question e-mail must say plainly what has not been checked")
+            elif not evidence.get("all_gates_passed"):
                 problems.append("study gates have not all passed")
             if attachment:
                 same_report = [c for c in history if c.get("report_hash") == file_hash(attachment)]
@@ -136,15 +157,21 @@ def save_draft(to, subject, body, attachment=None, open_window=True):
     return url
 
 
-def propose(spec_path):
-    spec = json.loads(Path(spec_path).read_text(encoding="utf-8"))
+def prepared(spec):
+    """The spec as it will be sent: the no-obligation line added, a results link instead of an attachment."""
+    spec = dict(spec)
     if NO_OBLIGATION_LINE.lower() not in spec["body"].lower():
         spec["body"] = spec["body"].replace("Thank you for your time.", NO_OBLIGATION_LINE + "\n\nThank you for your time.")
-    auto_send = POLICY.get("auto_send_first_contact", False)
-    if auto_send and spec.get("attachment") and RESULTS_URL not in spec["body"]:
+    if POLICY.get("auto_send_first_contact", False) and spec.get("attachment") and RESULTS_URL not in spec["body"]:
         # Auto-sent first contacts carry a link to the public results page instead of a PDF attachment.
         spec["body"] = spec["body"].replace(
             NO_OBLIGATION_LINE, f"The results and plots are here: {RESULTS_URL}\n\n" + NO_OBLIGATION_LINE, 1)
+    return spec
+
+
+def propose(spec_path):
+    spec = prepared(json.loads(Path(spec_path).read_text(encoding="utf-8")))
+    auto_send = POLICY.get("auto_send_first_contact", False)
     ledger = load_ledger()
     problems = check_rules(spec, ledger)
     if problems:
@@ -176,6 +203,128 @@ def propose(spec_path):
     save_ledger(ledger)
     print(f"Gmail draft opened for {spec['to']}. Drag in the highlighted PDF, review, and press Send yourself.")
     return 0
+
+
+def add_expert(spec):
+    """A spec may carry its expert (_expert_entry: address -> name, email_source, their_work). It is copied
+    into experts.json once; an entry without a public source for the address or without their work is not."""
+    added = []
+    for address, entry in (spec.get("_expert_entry") or {}).items():
+        address = address.strip().lower()
+        if address in EXPERTS or not entry.get("email_source") or not entry.get("their_work"):
+            continue
+        EXPERTS[address] = entry
+        added.append(address)
+    if added:
+        EXPERTS_FILE.write_text(json.dumps(EXPERTS, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    return added
+
+
+def waiting_specs(today=None):
+    """Specs in outbox/outreach/ that have not gone out, oldest file name first."""
+    today = today or TODAY
+    for path in sorted(QUEUE_DIR.glob("*.json")):
+        if path.name.endswith("EVIDENCE.json"):
+            continue
+        try:
+            spec = json.loads(path.read_text(encoding="utf-8"))
+        except ValueError:
+            continue
+        if not all(key in spec for key in ("to", "subject", "body")):
+            continue
+        if spec.get("_sent") or spec.get("_drafted") or spec.get("_withdrawn"):
+            continue
+        not_before = spec.get("_not_before")
+        if not_before and today < dt.date.fromisoformat(not_before):
+            continue
+        yield path, spec
+
+
+def _note_in_spec(path, **notes):
+    spec = json.loads(path.read_text(encoding="utf-8"))
+    spec.update(notes)
+    path.write_text(json.dumps(spec, indent=1, ensure_ascii=False) + "\n", encoding="utf-8")
+
+
+def run_queue(status_only=False):
+    """The recurring step (daily task). Sends at most `recurring.max_sends_per_run` waiting specs; every one
+    goes through propose(), so every rule in check_rules applies. A refused spec stays in the folder with the
+    reasons written into it and is tried again on the next run. Returns the lines it would print."""
+    limit = POLICY.get("recurring", {}).get("max_sends_per_run", 1)
+    lines, sent = [], 0
+    for path, spec in waiting_specs():
+        if not status_only:
+            add_expert(spec)
+        problems = check_rules(prepared(spec), load_ledger())
+        if status_only and spec["to"].strip().lower() not in EXPERTS and spec.get("_expert_entry"):
+            problems = [p for p in problems if "not in experts.json" not in p]  # the real run adds the entry first
+        if problems:
+            lines.append(f"{path.name}: waits ({'; '.join(problems)})")
+            if not status_only:
+                _note_in_spec(path, _last_refusal={"date": TODAY.isoformat(), "rules": problems})
+            continue
+        if status_only or sent >= limit:
+            lines.append(f"{path.name}: allowed" + ("" if status_only else ", next run (one per run)"))
+            continue
+        if propose(path) != 0:
+            lines.append(f"{path.name}: not sent")
+            continue
+        entry = [c for c in load_ledger()["contacts"] if c["to"] == spec["to"].strip().lower()][-1]
+        if entry["state"] == "sent":
+            _note_in_spec(path, _sent=TODAY.isoformat(), _status=f"SENT {TODAY.isoformat()} from {GMAIL_ACCOUNT}")
+            lines.append(f"{path.name}: SENT to {spec['to']}")
+        else:
+            _note_in_spec(path, _drafted=TODAY.isoformat(), _status="Gmail did not confirm the send; it is a draft in Gmail")
+            lines.append(f"{path.name}: saved as a Gmail draft (send not confirmed)")
+        sent += 1
+    if not status_only:
+        job = weekly_review_job()
+        if job:
+            lines.append(f"queued the weekly outreach review: {job}")
+    return lines
+
+
+def weekly_review_job(today=None):
+    """Once per ISO week an AI session is asked whether the lab has a new checked result that is worth ONE
+    question to ONE researcher. It writes a spec into outbox/outreach/; the daily queue sends it under the
+    rules. No new checked result: it writes no mail and says so. Returns the job id when one was queued."""
+    today = today or TODAY
+    recurring = POLICY.get("recurring", {})
+    if not recurring.get("weekly_review") or not RESEARCH_QUEUE.exists():
+        return None
+    year, week, _ = today.isocalendar()
+    job_id = f"outreach_weekly_{year}w{week:02d}"
+    queue = json.loads(RESEARCH_QUEUE.read_text(encoding="utf-8"))
+    if any(job.get("id") == job_id for job in queue.get("jobs", [])):
+        return None
+    queue.setdefault("jobs", []).append({
+        "id": job_id,
+        "title": "Weekly outreach review: one question to one researcher, only for a new checked result",
+        "project": "outreach",
+        "status": "needs_ai",
+        "why": (
+            "Recurring (user, 2026-11-25). Run `python outreach.py queue --status` and `python outreach.py status` in "
+            "automation/. Then look for a lab result that is NEW since the last e-mail on its topic and is checked "
+            "(Lean-checked ledger lemma, or a study whose gates passed and whose Review Panel verdict is pass). "
+            "If there is one and nobody was asked about it: find ONE researcher whose own paper it touches and whose "
+            "address is printed in public (paper or home page; record the URL), read that paper, and write a spec to "
+            "outbox/outreach/<date>-<topic>-<name>.json with to, topic, subject, body, evidence and _expert_entry, "
+            "plus its EVIDENCE.json (kind 'question' when the mail asks whether something is known or right). The body "
+            "asks one specific question, says what is unchecked, and links the public note. Do not send it yourself: "
+            "the daily queue sends it if every rule passes. Researchers who already replied get an update only when "
+            "there is something new for them (gmail_compose.send_now, same rules). Promotion: only a public note or "
+            "release for a checked result; never post a claim that no mathematician has read as a result, and never "
+            "write to a mailing list or to several people. Nothing new this week: write no e-mail, set the job done "
+            "with result 'nothing new'."
+        ),
+    })
+    RESEARCH_QUEUE.write_text(json.dumps(queue, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    try:
+        import ai_bridge  # hands it to the always-on agent
+        ai_bridge.bridge()
+    except Exception:
+        pass
+    return job_id
 
 
 def mark(address, state):
@@ -283,6 +432,10 @@ def status():
         print(f"{entry['to']:36} {str(entry.get('topic')):5} {entry['state']:10} {entry['date']:10} {note}")
     new_last_30 = [c for c in ledger["contacts"] if days_since(c["date"]) < 30 and not c.get("follow_up")]
     print(f"\nNew contacts in last 30 days: {len(new_last_30)} (limit {POLICY['max_new_drafts_per_30_days']})")
+    new_last_7 = [c for c in new_last_30 if days_since(c["date"]) < 7]
+    print(f"New contacts in last 7 days: {len(new_last_7)} (limit {POLICY.get('max_new_contacts_per_7_days', 'none')})")
+    waiting = list(waiting_specs())
+    print(f"Waiting in outbox/outreach: {len(waiting)}" + "".join(f"\n  {path.name} -> {spec['to']}" for path, spec in waiting))
     return 0
 
 
@@ -304,6 +457,9 @@ if __name__ == "__main__":
         chrome = gmail_app.chrome_command()
         url = matches[-1]["compose_url"]
         subprocess.Popen(chrome + ["--app=" + url] if chrome else [EDGE, "--profile-directory=Default", "--new-window", url])
+        sys.exit(0)
+    if command == "queue":
+        print("\n".join(run_queue(status_only="--status" in sys.argv)) or "nothing is waiting")
         sys.exit(0)
     if command == "sync":
         print("\n".join(sync()) or "no changes")

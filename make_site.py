@@ -72,8 +72,11 @@ def build():
     rules = [
         "Sends automatically, but only emails that pass every rule below (otherwise it stays a draft)",
         "One recipient per email",
-        f"At most {policy['max_new_drafts_per_30_days']} new contacts per 30 days",
-        f"{policy['min_days_between_contacts_same_person']} days between contacts with the same person",
+        f"At most {policy.get('max_new_contacts_per_7_days', policy['max_new_drafts_per_30_days'])} new contacts per 7 days "
+        f"and {policy['max_new_drafts_per_30_days']} per 30 days",
+        f"{policy['min_days_between_contacts_same_person']} days between contacts with the same person, and only for a new result",
+        f"At most {policy['max_unanswered_emails_per_person']} unanswered email per person",
+        "A question may be asked before a claim is settled, if the email says what is unchecked",
         f"At most {policy['max_follow_ups_per_person']} follow-up, after {policy['follow_up_after_days_without_reply']} days",
         f"Body under {policy['max_body_words']} words, with an AI-assistance disclosure",
         'A "no reply is needed" line and one specific question',
