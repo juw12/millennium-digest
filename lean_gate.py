@@ -155,9 +155,11 @@ def main(check=True, send=_send):
         if check:
             run_checker()
         jobs = read_json(QUEUE, {}).get("jobs", [])
-        verdicts = judge(jobs, read_json(CACHE, {}))
+        cache = read_json(CACHE, {})
+        verdicts = judge(jobs, cache)
         state = read_json(STATE, {})
-        ledger, newly, added = flagship.settle(jobs, verdicts, RESULTS)
+        ledger, newly, added = flagship.settle(jobs, verdicts, RESULTS,
+                                               claim_verdict=lambda claims: job_verdict(claims, cache))
         if ledger is not None:
             flagship.save(ledger)
         for lemma_id in newly:

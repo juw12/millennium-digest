@@ -34,6 +34,35 @@ def test_next_lemma_follows_needs_and_skips_held():
     assert flagship.next_lemma(held + [job("j2", "F1", "needs_ai")], book)["id"] == "F2"
 
 
+def test_next_lemma_waits_for_the_gate():
+    book = ledger()
+    book["lemmas"][0]["status"] = "proved"
+    finished = [job("j1", "F1", "done", lean_claims=["a.lean"])]
+    assert flagship.next_lemma(finished, book)["id"] == "F4"  # F1 has a finished job the gate has not settled
+    book, _, _ = flagship.settle(finished, {"j1": "failed"}, ledger=book)
+    assert flagship.next_lemma(finished, book)["id"] == "F1"  # settled and not proved: open again
+    book["lemmas"][1].update({"lean_claims": ["b.lean"], "verdict": None})
+    assert flagship.next_lemma(finished, book)["id"] == "F4"  # installed files wait for the gate too
+
+
+def test_installed_lean_files_settle_without_a_job():
+    book = ledger()
+    book["lemmas"][1]["lean_claims"] = ["a.lean"]
+    book, newly, _ = flagship.settle([], {}, ledger=book, claim_verdict=lambda claims: "failed")
+    assert newly == [] and book["lemmas"][1]["verdict"] == "failed"
+    assert flagship.next_lemma([], dict(book, lemmas=book["lemmas"][1:]))["id"] == "F1"  # failed: back to the workers
+    assert "a.lean" in flagship.job_text(book["lemmas"][1], book, [])[1]
+    book, newly, _ = flagship.settle([], {}, ledger=book, claim_verdict=lambda claims: "checked")
+    assert newly == ["F1"] and book["lemmas"][1]["proved_by"] == "installed"
+    book["lemmas"][3]["lean_claims"] = ["c.lean"]  # a compute lemma is never proved by files alone
+    assert flagship.settle([], {}, ledger=book, claim_verdict=lambda claims: "checked")[1] == []
+
+
+def test_job_title_uses_the_ledger_short_name():
+    book = dict(ledger(), short="Flagship #86 f(8)")
+    assert flagship.job_text(book["lemmas"][0], book, [])[0].startswith("Flagship #86 f(8): F0")
+
+
 # ---------------------------------------------------------------- settle
 def test_lean_lemma_needs_a_checked_verdict():
     book, newly, _ = flagship.settle([job("j1", "F1", lean_claims=["a.lean"])], {"j1": "sorry"}, ledger=ledger())
@@ -133,7 +162,7 @@ def test_plan_job_for_the_flagship(monkeypatch):
     monkeypatch.setattr(flagship, "load", lambda path=None: book)
     dept = {"id": "flagship", "name": "Flagship", "brief": "BRIEF."}
     planned = lab.plan_job(dept, [], __import__("datetime").date(2026, 11, 25), 1, {})
-    assert planned["lemma_id"] == "F0" and planned["title"].startswith("Flagship #86 f(7): F0")
+    assert planned["lemma_id"] == "F0" and planned["title"].startswith("Flagship #86: F0")
     assert "YOUR LEMMA F0" in planned["why"] and lab.RESEARCH_RULES in planned["why"]
     for lemma in book["lemmas"]:
         lemma["status"] = "proved"

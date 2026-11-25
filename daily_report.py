@@ -95,7 +95,7 @@ def build(day=None, usage=None, parts=None):
                 + (f" (+{len(newly)} yesterday: {', '.join(lemma['id'] for lemma in newly)})" if newly else "")
                 + f"; {len(verified_strong)} machine-checked strong result(s); {len(finished)} jobs finished")
     lines += [f"**{headline}.**", ""]
-    lines += ["## Flagship: Erdos #86, decide f(7)", f"Baseline: {ledger.get('baseline', '-')}", ""]
+    lines += [f"## Flagship: {ledger.get('programme') or 'Erdos #86'}", f"Baseline: {ledger.get('baseline', '-')}", ""]
     for lemma_id, title, status, verdict in info["rows"]:
         mark = {"proved": "[x]", "open": "[ ]"}.get(status, "[~]")
         lines.append(f"- {mark} {lemma_id} {title}" + (f" - Lean: {verdict}" if verdict else ""))
