@@ -9,17 +9,21 @@ when every gate below holds; everything else stays where it is and is listed wit
 Gates (all must hold):
   1. a dated research note (YYYY-MM-DD-name.md), not an audit, correction or competition note
   2. the note's header names at least one research job, and every one named is useful
-     (lab_useful: Referee pass + Review Panel pass) and none is an internal check
+     (lab_useful: Referee pass + Review Panel pass) and none is an internal check;
+     or the header has a line "Flagship: F4, F5" and every lemma named is proved in the flagship
+     ledger with Lean files whose bytes today are the bytes the Lean gate marked `checked`
   3. nothing in the note says it must wait (panel FIX, "do not post", superseded, retracted)
   4. it has rested for `cooloff_days` and no later correction note exists for the same problem
   5. it is not on the private hold list (outbox/public_decisions.json, "hold": {note: reason})
   6. the note, the referee reports and the scripts that go with it contain nothing private
 
 What goes up: the note with the standing "AI lab, no human review" banner, the referee reports of the
-jobs it names, the tracked scripts and outputs of its gate folder, and one README row. Published notes
-are never overwritten here; corrections are made by hand in the public repo.
+jobs it names, the tracked scripts and outputs of its gate folder, and one README row. A note that rests
+on flagship lemmas only gets the Lean banner instead, and its Lean files go up in place of a gate folder.
+Published notes are never overwritten here; corrections are made by hand in the public repo.
 """
 import datetime as dt
+import hashlib
 import json
 import os
 import re
@@ -27,8 +31,10 @@ import subprocess
 import sys
 from pathlib import Path
 
+import flagship
 import lab_facts
 import lab_useful
+import lean_gate
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
@@ -44,6 +50,9 @@ NOT_RESEARCH = re.compile(r"audit|correction|retraction|erratum|kaggle|squares|c
 MUST_WAIT = re.compile(r"panel\s+FIX|do not post|must not be posted|superseded|retracted", re.I)
 JOB_ID = re.compile(r"lab_([a-z]+)_[0-9a-f]{6,}_\d+")
 HELPERS = ("panel", "writer", "director", "referee", "review")  # jobs that judge or write, not research
+FLAGSHIP_LINE = re.compile(r"^Flagship:(.*)$", re.M)
+LEMMA_ID = re.compile(r"\bF\d+(?:\.\d+)*\b")
+LEAN_KIND = "Machine-checked proof (Lean 4)"
 GATE_DIR = re.compile(r"prize_work/([A-Za-z0-9_.\-]+)/")
 SCRIPT_TYPES = {".py", ".json", ".md", ".txt", ".csv", ".lean", ".tex", ".out", ".log", ".cert"}
 FILE_LIMIT, GATE_LIMIT, GATE_FILES = 400_000, 4_000_000, 60
@@ -62,6 +71,14 @@ BANNER = """> **Status (published {day}).** This note comes from an AI-agent res
 > Nothing here is a proof or a solution. Files under `review_panel/` are simulated
 > adversarial reviews and are not part of this repository. Corrections are welcome: please
 > open an issue."""
+BANNER_LEAN = """> **Status (published {day}).** This note comes from an AI-agent research lab run by
+> Juwen Lie. The proof was written by an AI agent and checked by the Lean 4 kernel with
+> Mathlib (standard axioms only); the Lean files are in this repository under `prize_work/`.
+> The kernel checks the proof, not whether the formal statement says what this note says:
+> please read the definitions. **No human mathematician has reviewed it**, the lab does not
+> know whether the result is new, and it has not been posted to the problem's own site.
+> "I" below means the lab. Nothing here settles the open problem itself. Corrections and
+> references are welcome: please open an issue."""
 
 
 def log(text):
@@ -109,21 +126,61 @@ def research_jobs(note_text):
     return sorted({match.group(0) for match in JOB_ID.finditer(header) if match.group(1) not in HELPERS})
 
 
+def flagship_lemmas(note_text):
+    """Ids of the flagship lemmas named on the header's "Flagship:" line (the first 16 lines)."""
+    header = "\n".join(note_text.splitlines()[:16])
+    return sorted({lemma_id for line in FLAGSHIP_LINE.findall(header) for lemma_id in LEMMA_ID.findall(line)})
+
+
+def lean_state():
+    """The flagship ledger's lemmas by id and the Lean gate's cache, read from this lab."""
+    ledger = lean_gate.read_json(ROOT / flagship.LEDGER.relative_to(flagship.ROOT), {})
+    cache = lean_gate.read_json(ROOT / "prize_work" / "lean" / "claim_cache.json", {})
+    return {"lemmas": {lemma.get("id"): lemma for lemma in ledger.get("lemmas", [])}, "cache": cache}
+
+
+def lemma_files(lemma, cache, words=()):
+    """(Lean files of a lemma as paths inside the lab, None) when it may go up as machine-checked, else
+    (None, reason). Stricter than the ledger: only `checked` counts (no compiler trust), on today's bytes."""
+    if lemma is None:
+        return None, "not in the ledger"
+    if lemma.get("status") != "proved":
+        return None, "not proved in the ledger"
+    files = []
+    for claim in lemma.get("lean_claims") or []:
+        key = lean_gate.relative(claim)
+        try:
+            data = (ROOT / "prize_work" / key).read_bytes() if key else None
+        except OSError:
+            data = None
+        if data is None:
+            return None, f"Lean file missing ({claim})"
+        entry = (cache.get("claims") or {}).get(key) or {}
+        if entry.get("sha") != hashlib.sha256(data).hexdigest():
+            return None, f"{Path(key).name} changed since the Lean gate checked it"
+        if entry.get("verdict") != "checked":
+            return None, f"{Path(key).name}: Lean verdict is {entry.get('verdict')}, not checked"
+        if len(data) > FILE_LIMIT or private_hits(data.decode("utf-8", errors="replace"), words):
+            return None, f"{Path(key).name} is too large or has private text"
+        files.append(f"prize_work/{key}")
+    return (files, None) if files else (None, "no Lean file in the ledger")
+
+
 def body_lines(note_text):
     """The note without its addressee line (a word to the reader in the lab, never part of the public text)."""
     return [line for index, line in enumerate(note_text.splitlines()) if not (index < 10 and line.startswith("To:"))]
 
 
-def public_text(note_text, day):
+def public_text(note_text, day, banner=BANNER):
     """The note as it goes up: no addressee line, the standing banner under the header."""
     lines = body_lines(note_text)
     spot = next((index for index, line in enumerate(lines) if index >= 2 and not line.strip()), len(lines))
-    lines[spot:spot] = ["", BANNER.format(day=day)]
+    lines[spot:spot] = ["", banner.format(day=day)]
     return "\n".join(lines).rstrip("\n") + "\n"
 
 
-def verdict(path, jobs_by_id, useful, held, published_names, outbox_files, cooloff_days, now, words=()):
-    """(True, info) when the note may go up, else (False, [reasons])."""
+def verdict(path, jobs_by_id, useful, held, published_names, outbox_files, cooloff_days, now, words=(), lean=None):
+    """(True, info) when the note may go up, else (False, [reasons]). `lean` = lean_state()."""
     name = path.name
     match = DATED.match(name)
     if name in published_names:
@@ -140,8 +197,16 @@ def verdict(path, jobs_by_id, useful, held, published_names, outbox_files, coolo
     if waiting:
         reasons.append(f"the note says it must wait ({waiting.group(0).lower()!r})")
     named = research_jobs(content)
-    if not named:
+    lemmas = flagship_lemmas(content)
+    if not named and not lemmas:
         reasons.append("no research job named in the header")
+    lean_files = []
+    for lemma_id in lemmas:
+        files, why = lemma_files(((lean or {}).get("lemmas") or {}).get(lemma_id), (lean or {}).get("cache") or {}, words)
+        if why:
+            reasons.append(f"flagship {lemma_id}: {why}")
+        else:
+            lean_files += [name for name in files if name not in lean_files]
     for job_id in named:
         job = jobs_by_id.get(job_id)
         if job is None:
@@ -158,18 +223,20 @@ def verdict(path, jobs_by_id, useful, held, published_names, outbox_files, coolo
         if (other.name != name and problem in other.name.lower() and re.search(r"correction|retraction|erratum", other.name)
                 and other.stat().st_mtime >= path.stat().st_mtime - 86400):
             reasons.append(f"a later correction exists: {other.name}")
+    lean_only = bool(lemmas) and not named  # no referee job: the Lean kernel is the judge, and the banner says so
     leaks = private_hits(public_text(content, now.date().isoformat()), words)
     if leaks:
         reasons.append(f"private text in the note ({len(leaks)} place(s))")
     if reasons:
         return False, reasons
     novelties = {lab_useful._first_word(jobs_by_id[job_id].get("novelty")) for job_id in named}
-    kind = next((label for key, label in KINDS if key in novelties), "Computation")
+    kind = LEAN_KIND if lean_only else next((label for key, label in KINDS if key in novelties), "Computation")
     title = next((line[2:].strip() for line in content.splitlines() if line.startswith("# ")), name)
     number = re.fullmatch(r"erdos(\d+)", problem)
     return True, {"jobs": named, "kind": kind, "title": title, "content": content,
                   "problem": f"Erdős #{number.group(1)}" if number else "-",
-                  "gates": sorted(set(GATE_DIR.findall(content)))}
+                  "gates": [] if lean_only else sorted(set(GATE_DIR.findall(content))),
+                  "lemmas": lemmas, "lean_files": lean_files, "banner": BANNER_LEAN if lean_only else BANNER}
 
 
 def review():
@@ -185,8 +252,9 @@ def review():
     files = sorted(OUTBOX.glob("*.md"))
     words = private_words()
     now = dt.datetime.now()
+    lean = lean_state()
     rows = [(path, *verdict(path, {str(job.get("id")): job for job in jobs}, lab_useful.useful_ids(lab_useful.QUEUE), saved["hold"],
-                            public, files, settings["cooloff_days"], now, words)) for path in files]
+                            public, files, settings["cooloff_days"], now, words, lean)) for path in files]
     return rows, settings, repo, words
 
 
@@ -247,7 +315,7 @@ def stage(tree, path, info, day, words):
     written = []
     target = tree / "notes" / path.name
     target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(public_text(info["content"], day), encoding="utf-8", newline="\n")
+    target.write_text(public_text(info["content"], day, info.get("banner", BANNER)), encoding="utf-8", newline="\n")
     written.append(f"notes/{path.name}")
     for job_id in info["jobs"]:
         report = ROOT / "review_notes" / f"{job_id}.md"
@@ -265,6 +333,12 @@ def stage(tree, path, info, day, words):
                 public_file.parent.mkdir(parents=True, exist_ok=True)
                 public_file.write_bytes(data)
                 written.append(relative.replace("\\", "/"))
+    for relative in info.get("lean_files", []):  # the bytes the Lean gate checked (verdict() compared the hash)
+        public_file = tree / relative
+        if not public_file.exists():
+            public_file.parent.mkdir(parents=True, exist_ok=True)
+            public_file.write_bytes((ROOT / relative).read_bytes())
+            written.append(relative)
     slug = path.stem[11:]
     one_line = re.sub(r"\s+", " ", info["title"]).replace("|", "/")
     row = f"| [{slug}](notes/{path.name}) | {info['problem']} | {info['kind']} | {one_line} |"

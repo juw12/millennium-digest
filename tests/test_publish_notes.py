@@ -1,4 +1,5 @@
 """publish_notes.py: only a reviewed, rested, clean note goes up, with its banner, report, scripts and README row.
+A note that rests on flagship lemmas goes up only when the Lean gate checked today's bytes of every Lean file.
 
     python tests/test_publish_notes.py
 
@@ -6,6 +7,7 @@ Builds a throw-away lab (queue, outbox, reports, a tracked gate folder) and a th
 with its own "GitHub" (a bare repo), then runs the real gate and the real publish against them.
 """
 import datetime as dt
+import hashlib
 import json
 import os
 import subprocess
@@ -93,6 +95,35 @@ def main():
         (lab / "outbox" / "public_decisions.json").write_text(
             json.dumps({"hold": {"2026-11-01-erdos18-held.md": "already known"}}), encoding="utf-8")
 
+        # The Lean route: a flagship ledger, four Lean files and the Lean gate's cache.
+        proofs = lab / "prize_work" / "flagship-erdos-86-f7" / "lean"
+        proofs.mkdir(parents=True)
+        (lab / "prize_work" / "lean").mkdir()
+        texts = {"Good.lean": "theorem good : 1 + 1 = 2 := rfl\n", "Edited.lean": "theorem edited : 2 = 2 := rfl\n",
+                 "Trust.lean": "theorem trust : 3 = 3 := by native_decide\n", "Open.lean": "theorem later : 4 = 4 := sorry\n"}
+        for name, text in texts.items():
+            (proofs / name).write_text(text, encoding="utf-8", newline="\n")
+        sha = {name: hashlib.sha256(text.encode()).hexdigest() for name, text in texts.items()}
+        claim = "prize_work/flagship-erdos-86-f7/lean/"
+        (lab / "prize_work" / "lean" / "claim_cache.json").write_text(json.dumps({"claims": {
+            claim[11:] + "Good.lean": {"sha": sha["Good.lean"], "verdict": "checked"},
+            claim[11:] + "Edited.lean": {"sha": "0" * 64, "verdict": "checked"},
+            claim[11:] + "Trust.lean": {"sha": sha["Trust.lean"], "verdict": "kernel_trust"},
+            claim[11:] + "Open.lean": {"sha": sha["Open.lean"], "verdict": "checked"}}}), encoding="utf-8")
+        (lab / "prize_work" / "flagship-erdos-86-f7" / "ledger.json").write_text(json.dumps({"lemmas": [
+            {"id": "F1", "status": "proved", "lean_claims": [claim + "Good.lean"]},
+            {"id": "F2", "status": "proved", "lean_claims": [claim + "Edited.lean"]},
+            {"id": "F3", "status": "proved", "lean_claims": [claim + "Trust.lean"]},
+            {"id": "F4", "status": "open", "lean_claims": [claim + "Open.lean"]},
+            {"id": "F5", "status": "proved", "lean_claims": []}]}), encoding="utf-8")
+        lean_note = note(outbox, "2026-11-01-erdos30-lean.md", "Flagship: F1\nGate: `prize_work/gate-a/`")
+        note(outbox, "2026-11-01-erdos31-leanedited.md", "Flagship: F1, F2")
+        note(outbox, "2026-11-01-erdos32-leantrust.md", "Flagship: F3")
+        note(outbox, "2026-11-01-erdos33-leanopen.md", "Flagship: F4")
+        note(outbox, "2026-11-01-erdos34-leannofile.md", "Flagship: F5")
+        note(outbox, "2026-11-01-erdos35-leanunknown.md", "Flagship: F9")
+        note(outbox, "2026-11-01-erdos36-leanbody.md", "Review gate: PASS", body="Numbers.\n" * 20 + "Flagship: F1\n")
+
         origin, public = base / "origin.git", base / "public"
         git(base, "init", "-q", "--bare", "-b", "main", str(origin))
         git(base, "clone", "-q", str(origin), str(public))
@@ -142,6 +173,19 @@ def main():
         kept("2026-11-01-erdos20-nojob.md", "no research job")
         kept("2026-11-01-erdos21-unknown.md", "not in the queue")
         kept("2026-11-01-kaggle-squares-thing.md", "audit, correction or competition")
+        lean_ok, lean_info = outcome[lean_note.name]
+        check("a note on a proved, Lean-checked flagship lemma passes", lean_ok, lean_info)
+        check("it is labelled machine-checked, carries its Lean file and no gate folder",
+              lean_ok and lean_info["kind"] == publish_notes.LEAN_KIND and lean_info["gates"] == []
+              and lean_info["lean_files"] == [claim + "Good.lean"] and lean_info["lemmas"] == ["F1"], lean_info)
+        kept("2026-11-01-erdos31-leanedited.md", "changed since the Lean gate checked it")
+        kept("2026-11-01-erdos32-leantrust.md", "Lean verdict is kernel_trust, not checked")
+        kept("2026-11-01-erdos33-leanopen.md", "not proved in the ledger")
+        kept("2026-11-01-erdos34-leannofile.md", "no Lean file in the ledger")
+        kept("2026-11-01-erdos35-leanunknown.md", "not in the ledger")
+        kept("2026-11-01-erdos36-leanbody.md", "no research job")
+        check("the job-reviewed note keeps the standing banner and its gate folder",
+              outcome[good.name][1]["banner"] == publish_notes.BANNER and outcome[good.name][1]["gates"] == ["gate-a"])
         kept("ppl-001-status-audit-2026-11-01.md", "not a dated research note")
         for sample in ("C:\\Users\\me\\x", "C:\\\\Users\\\\me", "e:/Projects/lab/x.py"):
             check(f"a path on this PC is private: {sample}", publish_notes.private_hits(sample))
@@ -156,7 +200,16 @@ def main():
         check("publish: exit 0", publish_notes.main([]) == 0)
         files = git(origin, "ls-tree", "-r", "--name-only", "main").splitlines()
         check("both notes are on GitHub", f"notes/{good.name}" in files and "notes/2026-11-01-erdos12-negative.md" in files, files)
-        check("no other note went up", sum(name.startswith("notes/") for name in files) == 3, files)
+        check("the Lean note is on GitHub too", f"notes/{lean_note.name}" in files, files)
+        check("no other note went up", sum(name.startswith("notes/") for name in files) == 4, files)
+        lean_up = git(origin, "show", f"main:notes/{lean_note.name}")
+        check("the Lean note carries the Lean banner, not the referee one",
+              "checked by the Lean 4 kernel" in lean_up and "does not\n> know whether the result is new" in lean_up
+              and "No human mathematician has reviewed it" in lean_up and "independent\n> AI referee" not in lean_up
+              and "To:" not in lean_up, lean_up[:700])
+        check("the checked Lean file went up byte for byte, the others stayed home",
+              claim + "Good.lean" in files and git(origin, "show", f"main:{claim}Good.lean") == texts["Good.lean"]
+              and not any(name.endswith(("Edited.lean", "Trust.lean", "Open.lean")) for name in files), files)
         up = git(origin, "show", f"main:notes/{good.name}")
         check("the banner is in, the addressee line is out", "No human mathematician has reviewed it" in up and "To:" not in up, up[:300])
         check("the clean referee report went up", "review_notes/lab_erdos_261101_1.md" in files)
@@ -166,14 +219,15 @@ def main():
               not any(name.endswith(("secret.py", "untracked.py", "tmp.py", "big.bin")) for name in files), files)
         readme = git(origin, "show", "main:README.md")
         table = [line for line in readme.splitlines() if line.startswith("|")]
-        check("README: one row per new note, inside the table", len(table) == 5 and "| Erdős #11 | Extension |" in table[3]
+        check("README: one row per new note, inside the table", len(table) == 6 and "| Erdős #11 | Extension |" in table[3]
+              and any("| Erdős #30 | Machine-checked proof (Lean 4) |" in row for row in table)
               and readme.rstrip().endswith("## After"), readme)
         check("the local public copy is up to date and clean", (public / "notes" / good.name).exists()
               and not git(public, "status", "--porcelain").strip())
         check("the work tree and its branch are gone", "publish-" not in git(public, "worktree", "list")
               and "agent/publish" not in git(public, "branch", "--list"))
         saved = json.loads(publish_notes.DECISIONS.read_text(encoding="utf-8"))
-        check("the decision file remembers both and keeps the hold list", len(saved["published"]) == 2 and len(saved["hold"]) == 1)
+        check("the decision file remembers all three and keeps the hold list", len(saved["published"]) == 3 and len(saved["hold"]) == 1)
         check("one notice was sent", len(sent) == 1)
         index = publish_notes.USEFUL_INDEX.read_text(encoding="utf-8")
         check("the private list names the 3 useful jobs and not the failed one", "3 results passed" in index

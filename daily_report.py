@@ -63,6 +63,25 @@ def _gaps(day, minutes=60):
     return [(a, b) for a, b in zip(points, points[1:]) if (b - a).total_seconds() > minutes * 60]
 
 
+def checked_steps(newly, info, tokens):
+    """The lab's second number beside tokens: flagship lemmas the Lean gate accepted on the day, who wrote them,
+    and what a lab-written step cost. (report line, card value). Steps written in a Vector session are named
+    apart: their tokens do not pass the AICC gateway, so they must not make the lab's tokens look cheaper."""
+    by_lab = [lemma["id"] for lemma in newly if lemma.get("proved_by") != "installed"]
+    installed = [lemma["id"] for lemma in newly if lemma.get("proved_by") == "installed"]
+    who = "; ".join(filter(None, [f"lab workers: {', '.join(by_lab)}" if by_lab else "",
+                                  f"Vector session, installed: {', '.join(installed)}" if installed else ""]))
+    if by_lab and tokens:
+        cost = f"{usage_report.short(tokens / len(by_lab))} lab tokens per step a lab worker proved"
+    elif tokens:
+        cost = f"no step by a lab worker, so {usage_report.short(tokens)} lab tokens bought none"
+    else:
+        cost = "tokens not recorded"
+    line = (f"- Machine-checked steps (flagship lemmas the Lean gate accepted): {len(newly)} on this day"
+            + (f" ({who})" if who else "") + f", {info['proved']} of {info['total']} in all; {cost}")
+    return line, f"{len(newly)} ({len(by_lab)} by lab workers)"
+
+
 def build(day=None, usage=None, parts=None):
     """(subject, markdown text) for `day` (default: yesterday). `usage` = usage_report.collect(day) when the
     caller has it (the usage part is left out when it is None); `parts`, when given, receives the headline and
@@ -111,6 +130,8 @@ def build(day=None, usage=None, parts=None):
     lines += ["", "## Output"]
     lines.append("- Finished by desk: " + (", ".join(f"{name} {count}" for name, count in desks.most_common()) or "none"))
     lines.append(f"- Failed: {len(failed)}")
+    steps_line, steps_card = checked_steps(newly, info, tokens)
+    lines.append(steps_line)
     if best.get("valid"):
         week = (dt.date.fromisoformat(day) - dt.timedelta(days=7)).isoformat()
         older = [scores[key] for key in sorted(scores) if key <= week]
@@ -136,6 +157,7 @@ def build(day=None, usage=None, parts=None):
         switching = (usage or {}).get("switching") or {}
         parts.update(headline=headline, days=pace.get("days") or {}, target=pace.get("target") or 0, cards=[
             ("Flagship lemmas proved", f"{info['proved']} / {info['total']}"),
+            ("Checked steps on the day", steps_card),
             ("Machine-checked results", len(verified_strong)),
             ("Jobs finished / failed", f"{len(finished)} / {len(failed)}"),
             ("Tokens", usage_report.short(tokens) if tokens else "-"),
