@@ -50,7 +50,8 @@ POOL_TITLE = "Lab: "  # lab_pool.py names every worker session "Lab: <job id>"
 PINNED_MODEL = "Pega-Coding"
 # What the gateway names run on, from its own usage breakdown (2026-11-25). The gateway lists Pega-Coding under the
 # raw name only; it was matched by volume against OpenCode's count.
-REAL_MODELS = {"Pega-Coding": "DeepSeek-V4.1-Flash", "Pega-Chat": "Qwen3.8-27B", "Pega-Thinking": "MiniMax-M3"}
+REAL_MODELS = {"Pega-Coding": "DeepSeek-V4.1-Flash", "Pega-Chat": "Qwen3.8-27B", "Pega-Thinking": "MiniMax-M3",
+               "MiniMax-M3": "MiniMax-M3", "GLM-5.3-Flash": "GLM-5.3-Flash", "Gemma4-31B": "Gemma4-31B"}
 PARTS = ("input", "output", "reasoning", "cache_read", "cache_write")
 FINISHED = ("done", "needs_review")
 
@@ -624,7 +625,10 @@ def trend_html(days, target=0, highlight=None):
     """Daily tokens of the last 14 days as bars made of table cells (mail clients drop scripts and most CSS)."""
     if not days:
         return ""
-    names = sorted(days)[-14:]
+    # Days after the report day are left out: the running day is only partly counted and would show as a miss.
+    names = sorted(name for name in days if not highlight or name <= highlight)[-14:]
+    if not names:
+        return ""
     top = max(max(days[name] for name in names), target, 1)
     rows = []
     for name in names:
@@ -646,7 +650,10 @@ def mail_html(day, headline, cards, report_text, days=None, target=0):
     cells = "".join(
         f"<td style='{STYLE['card']}width:{width}%;'><div style='{STYLE['label']}'>{html.escape(label)}</div>"
         f"<div style='{STYLE['value']}'>{html.escape(str(value))}</div></td>" for label, value in cards)
-    body = "\n".join(line for line in report_text.splitlines() if not line.startswith("# "))
+    # The title and the bold headline line are already shown above the cards.
+    repeated = f"**{headline}.**"
+    body = "\n".join(line for line in report_text.splitlines()
+                     if not line.startswith("# ") and line.strip() != repeated)
     return (f"<div style='{STYLE['page']}'><div style='{STYLE['h2']}'>Millennium lab - {html.escape(day)}</div>"
             f"<p style='color:#9fa7b3;margin:2px 0 12px 0;'>{html.escape(headline)}</p>"
             f"<table cellspacing='6' cellpadding='0' style='width:100%;max-width:980px;'><tr>{cells}</tr></table>"

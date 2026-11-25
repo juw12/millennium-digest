@@ -279,6 +279,12 @@ def main():
               and "Millennium lab - 2026-11-24" in mail and "#F2495C" in mail and "#F2CC0C" in mail)
         check("mail: no script, no style sheet (mail clients drop them)", "<script" not in mail and "<style" not in mail)
         check("mail: the report's own title is not repeated", "Daily</div>" not in mail)
+        later = usage_report.mail_html(DAY, "1 result", [("Tokens", "1.36 B")], "# Daily\n**1 result.**\n\nrest",
+                                       {"2026-11-23": 600_000_000, DAY: 1_360_000_000, "2026-11-25": 5}, 1_000_000_000)
+        check("mail: a day after the report day gets no bar", ">11-25<" not in later and ">11-24<" in later, later)
+        check("mail: the headline is shown once", later.count("1 result") == 1, later)
+        check("mail: the bars are left out when no day is at or before the report day",
+              usage_report.trend_html({"2026-11-25": 5}, 1, DAY) == "")
 
     print(f"\n{len(FAILURES)} failed" if FAILURES else "\nall checks passed")
     return 1 if FAILURES else 0
