@@ -151,7 +151,7 @@
     }
   ],
   "pool": {
-    "workers": 8,
+    "workers": 10,
     "work_hours": {
       "_note": "Weekdays 08:00-17:00 the pool runs at most this many workers so the PC stays usable; workers above applies at all other times.",
       "days": [
@@ -170,11 +170,17 @@
     "_token_note": "OpenCode tokens per day (token_pace.py). Only on a day that is expected to miss it, the weekday schedule runs work_hours.catchup_workers jobs instead of work_hours.workers and new jobs start on OpenCode. 0 switches this off.",
     "engines": [
       "opencode",
-      "copilot"
+      "talos"
     ],
     "timeout_minutes": 100,
     "max_attempts": 2,
-    "max_wait_hours": 0.9
+    "max_wait_hours": 0.9,
+    "engine_weights": {
+      "opencode": 2,
+      "talos": 1
+    },
+    "talos_dir": "E:\\Projects\\talos",
+    "_engine_note": "2026-11-25: Talos (juw12/talos, OpenCode + Hermes agent) replaces Copilot as the second engine: Copilot's personal-plan API is blocked by the office proxy since 11-12. Talos uses the AICC gateway (talos.json in the lab folder, key from PEGA_API_KEY), so AICC records its tokens like OpenCode's. engine_weights: new jobs go OpenCode, OpenCode, Talos in turn; a retry switches engine. workers 8 -> 10 outside work hours (night timeout rate was 4 %); the daily report shows jobs and timeouts per engine, so the trial can be judged."
   },
   "disk_guard": {
     "_note": "disk_guard.py: finished scratch is removed after grace_hours (dossier_grace_hours inside prize_work). Under low_free_gb free the pressure_* times apply and cold build caches go; under stop_free_gb the pool starts no new jobs.",

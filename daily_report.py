@@ -60,6 +60,20 @@ def _gaps(day, minutes=60):
     return [(a, b) for a, b in zip(points, points[1:]) if (b - a).total_seconds() > minutes * 60]
 
 
+def _engine_timeouts(day):
+    """Engine names of the workers that hit the pool's time limit on `day` (from pool.log)."""
+    try:
+        lines = (LOGS / "pool.log").read_text(encoding="utf-8", errors="replace").splitlines()
+    except OSError:
+        return []
+    found = []
+    for line in lines:
+        match = re.match(r"(\d{4}-\d{2}-\d{2}) \S+\s+\S+: (\S+) timeout after", line)
+        if match and match.group(1) == day:
+            found.append(match.group(2))
+    return found
+
+
 def build(day=None):
     """(subject, markdown text) for `day` (default: yesterday)."""
     day = day or (dt.date.today() - dt.timedelta(days=1)).isoformat()
@@ -72,6 +86,9 @@ def build(day=None):
                        and lab_useful.is_verified_strong(job, verdicts)]
     claimed_strong = [job for job in finished if lab_useful.is_strong(job)]
     desks = collections.Counter(job.get("dept") or "other" for job in finished)
+    engines = collections.Counter((job.get("pool") or {}).get("engine") or "?" for job in finished)
+    engine_failed = collections.Counter((job.get("pool") or {}).get("engine") or "?" for job in failed)
+    timeouts = collections.Counter(_engine_timeouts(day))
     ledger = flagship.load() or {"lemmas": []}
     info = flagship.summary(ledger)
     pace = _read(LOGS / "token_pace.json", {})
@@ -104,12 +121,17 @@ def build(day=None):
     lines += ["", "## Output"]
     lines.append("- Finished by desk: " + (", ".join(f"{name} {count}" for name, count in desks.most_common()) or "none"))
     lines.append(f"- Failed: {len(failed)}")
+    lines.append("- By engine (finished / failed / timeouts): " + (", ".join(
+        f"{name} {engines[name]}/{engine_failed[name]}/{timeouts[name]}"
+        for name in sorted(set(engines) | set(engine_failed) | set(timeouts))) or "none"))
     if best.get("valid"):
         week = (dt.date.fromisoformat(day) - dt.timedelta(days=7)).isoformat()
         older = [scores[key] for key in sorted(scores) if key <= week]
         lines.append(f"- Kaggle Squares score {best['score']:.6f} (lower is better)"
                      + (f", {older[-1]:.6f} a week before" if older else ""))
-    lines.append(f"- OpenCode tokens: {tokens / 1e9:.2f} B (target 1 B)" if tokens else "- OpenCode tokens: not recorded")
+    talos_tokens = (pace.get("talos_days") or {}).get(day, 0)
+    lines.append(f"- Tokens (OpenCode + Talos, all through the AICC gateway): {tokens / 1e9:.2f} B, of which Talos "
+                 f"{talos_tokens / 1e9:.2f} B (target 1 B)" if tokens else "- Tokens: not recorded")
     if plan.get("slots"):
         lines.append(f"- Slots ({plan.get('date')}): " + ", ".join(f"{k} {v}" for k, v in plan["slots"].items()))
     lines += ["", "## Problems"]

@@ -22,6 +22,8 @@ import pool_mode
 HERE = Path(__file__).resolve().parent
 DATABASE = Path.home() / ".local" / "share" / "opencode" / "opencode.db"
 CACHE = HERE / "logs" / "token_pace.json"
+TALOS_DATABASE = Path.home() / ".talos" / "talos.db"  # Talos lab workers (lab_pool engine "talos")
+LAB_ROOT = HERE.parent
 CACHE_SECONDS = 300
 SLOT_HOUR_TOKENS = 10_000_000  # per job slot and hour, both engines mixed (measured 12 M; kept low on purpose)
 MARGIN = 1.1                   # catch up unless the day is expected to pass the target by 10 %
@@ -42,6 +44,26 @@ def tokens_by_day(days=14, now=None, database=None):
             connection.close()
     except sqlite3.Error:
         return None
+    return {day: int(total or 0) for day, total in rows if day}
+
+
+def talos_tokens_by_day(days=14, now=None, database=None, root=None):
+    """{"YYYY-MM-DD": tokens} of Talos sessions run in the lab folder (input + output), or {} when unreadable.
+    Like OpenCode's, these calls go through the AICC gateway with Juwen's key, so AICC records them too."""
+    now = now or dt.datetime.now()
+    first = dt.datetime.combine(now.date() - dt.timedelta(days=days - 1), dt.time())
+    folder = str(root or LAB_ROOT).rstrip("\\/")
+    try:
+        connection = sqlite3.connect(f"file:{Path(database or TALOS_DATABASE).as_posix()}?mode=ro", uri=True, timeout=5)
+        try:
+            rows = connection.execute(
+                "select date(created, 'unixepoch', 'localtime'), sum(tokens_in + tokens_out) from sessions "
+                "where created >= ? and (cwd = ? or cwd like ?) group by 1",
+                (first.timestamp(), folder, folder + "%")).fetchall()
+        finally:
+            connection.close()
+    except sqlite3.Error:
+        return {}
     return {day: int(total or 0) for day, total in rows if day}
 
 
@@ -71,8 +93,11 @@ def status(pool=None, now=None, fresh=False):
         except (OSError, ValueError, KeyError):
             pass
     days = tokens_by_day(now=now)
+    talos = talos_tokens_by_day(now=now)
+    if days is not None:  # the lab's daily count = OpenCode + Talos workers
+        days = {day: days.get(day, 0) + talos.get(day, 0) for day in sorted(set(days) | set(talos))}
     result = {"target": target, "tokens": None, "expected": None, "behind": False, "days": days or {},
-              "checked": time.time()}
+              "talos_days": talos, "checked": time.time()}
     if days is not None:
         result["tokens"] = days.get(now.date().isoformat(), 0)
         result["expected"] = int(result["tokens"] + expected_rest(pool, now))

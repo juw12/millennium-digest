@@ -58,6 +58,7 @@ DEPARTMENTS = HERE / "lab_departments.json"
 # graded lab-style tasks; without -m, `opencode run` used OpenCode's chat default (pegaai/Pega-Chat).
 DEFAULT_OPENCODE_MODEL = "pegaai/Pega-Coding"
 COPILOT = Path(os.path.expandvars(r"%LOCALAPPDATA%\GitHubCopilotCLI\copilot.exe"))
+DEFAULT_TALOS_DIR = r"E:\Projects\talos"  # Talos (OpenCode + Hermes agent, github juw12/talos), run from source
 OPEN = ("needs_ai", "running")
 # The Referee comes right after the Director: it holds one slot, and a claim nobody re-ran is what every later
 # idea would be built on (2026-11-10: 83 finished results waited for it, 38 of them claiming progress).
@@ -110,6 +111,8 @@ def settings():
     return {
         "workers": scheduled_workers(pool),
         "engines": pool.get("engines", ["opencode", "copilot"]),
+        "engine_weights": pool.get("engine_weights", {}),
+        "talos_dir": pool.get("talos_dir", DEFAULT_TALOS_DIR),
         "opencode_model": pool.get("opencode_model", DEFAULT_OPENCODE_MODEL),
         "timeout_minutes": int(pool.get("timeout_minutes", 100)),
         "max_attempts": int(pool.get("max_attempts", 2)),
@@ -281,6 +284,17 @@ def _copilot_offline(log_path):
     return "Failed to load models" in text or "could not connect to the Copilot API" in text
 
 
+def _user_variable(name):
+    """A Windows user environment variable as stored now (a task started before it was set has an old copy)."""
+    try:
+        import winreg
+
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, "Environment") as key:
+            return str(winreg.QueryValueEx(key, name)[0])
+    except (OSError, ImportError):
+        return ""
+
+
 def _no_connection(log_path):
     """The engine could not reach its model (proxy or network down): a tiny log that holds only that error, or a
     longer run whose last words are the engine's own report that it lost the model."""
@@ -292,7 +306,7 @@ def _no_connection(log_path):
         return False
     if small:
         return any(sign in text for sign in ("ECONNREFUSED", "Unable to connect", "UnsupportedContentType",
-                                             "UnexpectedStatus"))
+                                             "UnexpectedStatus", '"stopped": "model error"'))
     tail = text[-1500:]
     last = tail.strip().rsplit("\n", 1)[-1]
     return "Failed to get response from the AI model" in tail or (
@@ -564,8 +578,30 @@ def prompt_for(job, earlier=()):
     return "\n\n".join(parts + tail)
 
 
+def talos_usable():
+    """Talos's source folder is there. Its model and the AICC gateway come from talos.json in the lab folder
+    (key from the PEGA_API_KEY user variable), so its tokens are recorded in AICC under Juwen's key like OpenCode's."""
+    return (Path(settings().get("talos_dir", DEFAULT_TALOS_DIR)) / "talos" / "__main__.py").exists()
+
+
+def talos_run(prompt):
+    python = Path(sys.executable)
+    if python.name.lower() == "pythonw.exe":  # the pool runs windowless; Talos writes its JSON to the log
+        python = python.with_name("python.exe")
+    return [str(python), "-m", "talos", "run", prompt, "--yes", "--json"]
+
+
+def pick_engine(engines, weights, slot):
+    """Engine for the slot-th new job of a tick: engines in turn, each repeated by its weight
+    (pool.engine_weights, e.g. {"opencode": 2, "talos": 1} = two OpenCode jobs, then one Talos job)."""
+    cycle = [engine for engine in engines for _ in range(max(0, int(weights.get(engine, 1))))] or list(engines)
+    return cycle[slot % len(cycle)]
+
+
 def command(engine, job, earlier=()):
     prompt = prompt_for(job, earlier)
+    if engine == "talos":
+        return talos_run(prompt)
     if engine == "copilot":
         return [str(COPILOT), "-p", prompt, "--allow-all", "--no-ask-user", "--add-dir", str(ROOT)]
     return opencode_run(f"Lab: {job['id']}", prompt)
@@ -582,6 +618,11 @@ def start(job, engine, state):
     if engine == "copilot":
         env.setdefault("HTTPS_PROXY", "http://localhost:3128")
         env.setdefault("HTTP_PROXY", "http://localhost:3128")
+    if engine == "talos":
+        talos_dir = settings().get("talos_dir", DEFAULT_TALOS_DIR)
+        env["PYTHONPATH"] = os.pathsep.join(filter(None, [talos_dir, env.get("PYTHONPATH", "")]))
+        env["PYTHONIOENCODING"] = "utf-8"
+        env.setdefault("PEGA_API_KEY", _user_variable("PEGA_API_KEY"))
     earlier = [attempt.get("outcome", "") for attempt in state.get(job["id"], {}).get("attempts", [])]
     with open(log_path, "w", encoding="utf-8") as handle:
         process = subprocess.Popen(command(engine, job, earlier), cwd=ROOT, stdout=handle, stderr=subprocess.STDOUT,
@@ -898,8 +939,10 @@ def fill():
         elif config["opencode_first"] and "opencode" in engines:
             engine = "opencode"  # behind the daily token target: Copilot only takes retries
         else:
-            engine = engines[slot % len(engines)]
+            engine = pick_engine(engines, config.get("engine_weights", {}), slot)
         if engine == "copilot" and not copilot_usable():
+            engine = "opencode"
+        if engine == "talos" and not talos_usable():
             engine = "opencode"
         if engine == "opencode" and not model_ok:
             slot += 1  # the next job still gets the engine it would have had
