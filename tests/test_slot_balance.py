@@ -184,3 +184,10 @@ def test_programme_card_without_slate_is_skipped_not_the_desk(monkeypatch):
     dept = {"id": "erdos", "name": "Erdos Bench", "brief": "b"}
     job = lab.plan_job(dept, [], TODAY, 1, {})
     assert job and job["idea_id"] == "erdos-named"
+
+
+def test_plan_written_by_powershell_with_a_bom_is_read(tmp_path, monkeypatch):
+    plan = tmp_path / "slot_plan.json"
+    plan.write_bytes(b"\xef\xbb\xbf" + json.dumps({"date": "2026-11-25", "slots": {"squares": 3}}).encode())
+    monkeypatch.setattr(slot_balance, "PLAN", plan)
+    assert slot_balance.load_plan(config(), TODAY) == {"squares": 3}

@@ -57,7 +57,7 @@ def settings(config):
 
 def _read(path, default):
     try:
-        return json.loads(Path(path).read_text(encoding="utf-8"))
+        return json.loads(Path(path).read_text(encoding="utf-8-sig"))  # a hand-written file may start with a BOM
     except (OSError, ValueError):
         return default
 
