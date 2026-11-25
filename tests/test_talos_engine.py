@@ -102,6 +102,22 @@ def test_flagship_starts_on_talos_in_its_reserved_slots_when_the_cap_is_full(tmp
     assert started == [("lab_flagship_261125_1", "talos"), ("lab_flagship_261125_2", "talos")]
 
 
+def test_running_flagship_workers_do_not_fill_the_shared_slots(tmp_path, monkeypatch):
+    flagship = [{**_job(f"lab_flagship_261125_{i}", "flagship"), "status": "running"} for i in (1, 2)]
+    squares = [{**_job(f"lab_squares_261125_{i}", "squares"), "status": "running"} for i in range(2)]
+    waiting = [_job("lab_erdos_261125_8", "erdos"), _job("lab_erdos_261125_9", "erdos")]
+    alive = [job["id"] for job in flagship + squares]
+    started = _fill(tmp_path, monkeypatch, flagship + squares + waiting, alive)
+    assert [job_id for job_id, _ in started] == ["lab_erdos_261125_8"]  # 2 of 3 shared slots were in use
+    # a third Flagship job has no reserved slot left: it waits for a shared one like every other desk
+    third = _job("lab_flagship_261125_3", "flagship")
+    full = squares + [{**_job("lab_squares_261125_5", "squares"), "status": "running"}]
+    started = _fill(tmp_path, monkeypatch, flagship + full + [third], alive + ["lab_squares_261125_5"])
+    assert started == []
+    started = _fill(tmp_path, monkeypatch, flagship + squares + [third], alive)
+    assert started == [("lab_flagship_261125_3", "talos")]
+
+
 def test_other_desks_still_respect_the_cap(tmp_path, monkeypatch):
     busy = [{**_job(f"lab_squares_261125_{i}", "squares"), "status": "running"} for i in range(3)]
     started = _fill(tmp_path, monkeypatch, busy + [_job("lab_erdos_261125_9", "erdos")], [job["id"] for job in busy])

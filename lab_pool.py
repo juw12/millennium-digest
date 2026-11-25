@@ -935,6 +935,9 @@ def fill():
     reserved = {dept: int(count) for dept, count in (config.get("reserved") or {}).items()}
     in_reserve = {dept: sum(1 for job_id in alive_ids if job_id in open_ids and job_id.startswith(f"lab_{dept}_"))
                   for dept in reserved}
+    # a worker in a reserved slot does not fill a shared one, on this tick or on a later one (until 2026-11-25
+    # the two Flagship workers counted against the cap from the second tick on and held back the other desks)
+    running = max(0, running - sum(min(in_reserve[dept], count) for dept, count in reserved.items()))
     for job in candidates:
         dept = lab.job_dept(job)
         reserve = dept in reserved and in_reserve[dept] < reserved[dept]
