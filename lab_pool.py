@@ -928,6 +928,7 @@ def fill():
                   and not exhausted(state.get(job["id"], {}), config["max_attempts"])]
     candidates.sort(key=lambda job: start_order(job, now, config["max_wait_hours"]))
     slot = 0
+    turn = len(state)  # read once: start() adds to the state while this tick runs
     changed = False
     for job in candidates:
         if running >= config["workers"]:
@@ -939,7 +940,7 @@ def fill():
         elif config["opencode_first"] and "opencode" in engines:
             engine = "opencode"  # behind the daily token target: Copilot only takes retries
         else:
-            engine = pick_engine(engines, config.get("engine_weights", {}), len(state) + slot)  # turns run on
+            engine = pick_engine(engines, config.get("engine_weights", {}), turn + slot)  # turns run on
             # across ticks: in work hours a tick often starts one job, and slot alone would always be 0
         if engine == "copilot" and not copilot_usable():
             engine = "opencode"
