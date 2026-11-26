@@ -211,7 +211,7 @@ def cowork_problems(evidence, body):
         verdict = referee_verdict(report_job) if report_job else None
         if not report_job:
             problems.append("co-work offer: EVIDENCE.json does not name report_job, the job that wrote the report")
-        elif verdict != "pass":
+        elif not str(verdict or "").strip().lower().startswith("pass"):
             problems.append(f"co-work offer: the Referee has not passed {report_job} "
                             f"({verdict or 'not re-run yet'}); the report is one job's word until then")
     written = evidence.get("written")

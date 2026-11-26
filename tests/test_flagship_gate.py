@@ -169,6 +169,20 @@ def test_plan_job_for_the_flagship(monkeypatch):
     assert lab.plan_job(dept, [], __import__("datetime").date(2026, 11, 25), 2, {}) is None
 
 
+def test_the_referee_takes_a_partnerships_report_first():
+    """A co-work offer waits for the Referee's verdict on its report, so that job is reviewed before the
+    progress claims; the Review Panel keeps its own order."""
+    jobs = [{"id": "c1", "dept": "collab", "status": "done", "novelty": "reproduction"},
+            {"id": "e1", "dept": "erdos", "status": "needs_review", "novelty": "extension"},
+            {"id": "e2", "dept": "erdos", "status": "done", "novelty": "extension"},
+            {"id": "c0", "dept": "collab", "status": "done", "reviewed": True}]
+    assert [entry["id"] for entry in lab._waiting_for("review", jobs)] == ["e2", "e1", "c1"]
+    assert [entry["id"] for entry in lab._waiting_for("panel", jobs)][-1] == "e1"
+    dept = {"id": "review", "name": "Referee", "brief": "BRIEF."}
+    planned = lab.plan_job(dept, jobs, __import__("datetime").date(2026, 11, 26), 1, {})
+    assert "c1" in planned["reviews"]
+
+
 # ---------------------------------------------------------------- daily report
 def test_daily_report_reads_the_lab_files(tmp_path, monkeypatch):
     jobs = [job("f1", "F1", finished="2026-11-24T10:00:00", result="Cube.lean checked"),

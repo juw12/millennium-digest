@@ -183,7 +183,9 @@ def is_internal(job, cards):
 def _waiting_for(dept_id, jobs):
     """Finished jobs the Referee ("review") or the Review Panel ("panel") still has to check, most important
     last: claimed progress and needs_review results come after plain reproductions. A job that an open job of the
-    same department already reviews is left out, so two reviewers never get the same result."""
+    same department already reviews is left out, so two reviewers never get the same result. For the Referee a
+    Partnerships job comes before everything else: a co-work offer to a researcher waits for its verdict
+    (outreach_policy.json 'cowork'), and with hundreds of results waiting it would never be reached."""
     if dept_id == "review":
         skip, flag = ("review", "panel", "director"), "reviewed"  # a simulated review is not a result to re-run
     else:
@@ -192,7 +194,8 @@ def _waiting_for(dept_id, jobs):
             for job_id in job.get("reviews") or []}
     waiting = [job for job in jobs if job.get("dept") and job.get("dept") not in skip
                and job.get("status") in ("done", "needs_review") and not job.get(flag) and job["id"] not in busy]
-    waiting.sort(key=lambda job: (job.get("novelty") in lab_ideas.PROGRESS, job.get("status") == "needs_review"))
+    waiting.sort(key=lambda job: (dept_id == "review" and job.get("dept") == "collab",
+                                  job.get("novelty") in lab_ideas.PROGRESS, job.get("status") == "needs_review"))
     return waiting
 
 
