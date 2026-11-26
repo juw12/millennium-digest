@@ -84,13 +84,23 @@ def checked_steps(newly, info, tokens):
 
 
 def people_lines(root=None):
-    """The 'People' section: where each co-work target stands (collab/targets.json, kept by the Partnerships
+    """The 'People' section: first what only Juwen can do (a target marked needs_juwen, an open line in
+    collab/NEEDS_JUWEN.md), then where each co-work target stands (collab/targets.json, kept by the Partnerships
     desk), every mail still waiting in outbox/outreach/ - so it can be read, and withdrawn by putting
-    "_withdrawn" into its file, before the queue sends it - and contributions for open projects that wait for
-    Juwen to open them. Read from files only; an unreadable file is skipped."""
+    "_withdrawn" into its file, before the queue sends it - and the contributions for open projects, which an AI
+    session opens as pull requests since 2026-11-26. Read from files only; an unreadable file is skipped."""
     root = Path(root) if root else ROOT
     targets = (_read(root / "collab" / "targets.json", {}) or {}).get("targets", [])
     lines = []
+    for target in targets:
+        if target.get("needs_juwen") and target.get("state") not in ("closed", "merged"):
+            lines.append(f"- Needs you: {target.get('id')} - {target.get('needs_juwen_why', 'the project asks for you')}"
+                         + (f" - {target['ready_file']}" if target.get("ready_file") else ""))
+    try:
+        asked = (root / "collab" / "NEEDS_JUWEN.md").read_text(encoding="utf-8").splitlines()
+    except OSError:
+        asked = []
+    lines += ["- Needs you: " + line.strip()[5:].strip() for line in asked if line.strip().startswith("- [ ]")]
     if targets:
         states = collections.Counter(str(target.get("state", "?")) for target in targets)
         lines.append("- Co-work targets: " + ", ".join(f"{count} {state}" for state, count in states.most_common()))
@@ -113,9 +123,13 @@ def people_lines(root=None):
     lines.append(f"- Mail waiting to go out: {len(waiting)}"
                  + (" (to stop one, put \"_withdrawn\": true into its file)" if waiting else ""))
     lines += waiting
-    ready = [target for target in targets if target.get("state") == "ready"]
-    for target in ready:
-        lines.append(f"- Ready for you to open yourself: {target.get('id')} - {target.get('ready_file', 'see collab/')}")
+    for target in targets:
+        if target.get("state") == "ready" and not target.get("needs_juwen"):
+            lines.append(f"- Ready, the lab opens the pull request itself (after the Referee's pass and 2 days; to stop "
+                         f"it put \"_withdrawn\": true into the target): {target.get('id')} - "
+                         f"{target.get('ready_file', 'see collab/')}")
+        elif target.get("state") == "opened" and target.get("pr_url"):
+            lines.append(f"- Pull request open: {target.get('id')} - {target['pr_url']}")
     return lines
 
 

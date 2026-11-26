@@ -138,6 +138,10 @@ def run_outreach_queue(status_only=False):
         lines += outreach.run_queue(status_only=status_only)
     except Exception as error:
         lines.append(f"queue run failed: {error!r}")
+    try:  # contributions for open projects: a ready one is handed to an AI session, which opens the pull request
+        lines += outreach.project_pr_jobs(status_only=status_only)
+    except Exception as error:
+        lines.append(f"project step failed: {error!r}")
     if status_only:
         return lines
     log_file.parent.mkdir(exist_ok=True)

@@ -36,6 +36,7 @@ EXPERTS = json.loads(EXPERTS_FILE.read_text(encoding="utf-8")) if EXPERTS_FILE.e
 LEDGER_FILE = HERE / "contacts_log.json"
 QUEUE_DIR = HERE.parent / "outbox" / "outreach"
 RESEARCH_QUEUE = HERE.parent / "research_queue.json"
+TARGETS_FILE = HERE.parent / "collab" / "targets.json"  # kept by the Partnerships desk (collab/PROTOCOL.md)
 RESULTS_URL = "https://juw12.github.io/millennium-digest/results.html"
 NO_OBLIGATION_LINE = (
     "If this isn't something you have time for, no reply is needed, and I won't write again "
@@ -437,6 +438,165 @@ def weekly_review_job(today=None):
     except Exception:
         pass
     return job_id
+
+
+def _passed(verdict):
+    return str(verdict or "").strip().lower().startswith("pass")
+
+
+def contribution_problems(target, targets, today=None):
+    """Why a contribution the Partnerships desk prepared for an open project (collab/targets.json: kind
+    'project', state 'ready') may not be opened as a pull request yet. An empty list means an AI session may
+    open it. The rules are the ones a co-work offer has: the Referee passed the job that prepared it, it waited
+    so it can be read and withdrawn, and one project hears from the lab rarely."""
+    today = today or TODAY
+    rules = POLICY.get("project_contributions", {})
+    if not rules.get("enabled"):
+        return ["contributions to open projects are switched off (outreach_policy.json: project_contributions)"]
+    if target.get("_withdrawn"):
+        return ["withdrawn" + (f": {target['_withdrawn_why']}" if target.get("_withdrawn_why") else "")]
+    if target.get("needs_juwen"):
+        return ["needs Juwen: " + str(target.get("needs_juwen_why") or "the project asks for the person")]
+    problems = []
+    ready_file = target.get("ready_file")
+    if not ready_file or not (TARGETS_FILE.parent.parent / ready_file).exists():
+        problems.append("READY.md is missing (the target's ready_file)")
+    repo = str(target.get("repo") or "")
+    if repo.count("/") != 1:
+        problems.append("the target does not name 'repo' as owner/name")
+    ready_job = target.get("ready_job")
+    if not ready_job:
+        problems.append("the target does not name ready_job, the job that prepared the contribution")
+    elif rules.get("ready_must_pass_referee") and not _passed(referee_verdict(ready_job)):
+        problems.append(f"the Referee has not passed {ready_job} ({referee_verdict(ready_job) or 'not re-run yet'})")
+    cool_off = rules.get("cool_off_days", 2)
+    try:
+        waited = (today - dt.date.fromisoformat(str(target.get("ready_since")))).days
+    except ValueError:
+        problems.append("the target has no ready_since date (ISO)")
+    else:
+        if waited < cool_off:
+            problems.append(f"ready since {target['ready_since']}; it may be opened {cool_off} days later "
+                            "(so it can be read and withdrawn first)")
+    gap = rules.get("min_days_between_pull_requests_per_project", 30)
+    for other in targets:
+        if other is target or not repo or other.get("repo") != repo or not other.get("opened_on"):
+            continue
+        try:
+            since = (today - dt.date.fromisoformat(str(other["opened_on"]))).days
+        except ValueError:
+            continue
+        if since < gap:
+            problems.append(f"{repo} got a pull request from the lab {since} days ago ({other.get('id')}); "
+                            f"{gap} days between two")
+    return problems
+
+
+def _open_pr_text(target, rules):
+    account = rules.get("github_account", "juw12")
+    return (
+        f"Pre-approved by Juwen (2026-11-26: 'do all for me'): open ONE pull request for target {target['id']} in "
+        f"collab/targets.json, to {target['repo']}. The Partnerships desk prepared it ({target.get('ready_file')}), "
+        f"the Referee passed {target.get('ready_job')}, and it waited its cool-off. In this order, and stop at the "
+        "first step that fails:\n"
+        "1. Read the project's CONTRIBUTING file and its rule on AI help again, today, from the repository. If it "
+        "asks for a signed agreement (a CLA) that Juwen has not signed, forbids AI-assisted contributions, or asks "
+        "that the contributor can personally explain and defend every line: do NOT open anything. Set "
+        "\"needs_juwen\": true and \"needs_juwen_why\" (one sentence, with the URL of the rule) in the target; "
+        "the daily mail then shows it to him.\n"
+        "2. Read READY.md. Run every check it names again, and the project's own validation and tests, on a fresh "
+        "clone with the change applied. Anything fails or differs: do not open; set the target back to 'prepared' "
+        "with what failed in 'next'.\n"
+        "3. Search the project's open AND closed pull requests and issues for the same change. It exists already: "
+        "do not open; close the target with the link.\n"
+        f"4. Fork under the GitHub account {account} (for these commands only: set GH_TOKEN from "
+        f"`gh auth token --user {account}`; never `gh auth switch`; git needs "
+        "`-c http.proxy=http://localhost:3128`). One branch, one commit with only the files READY.md names, one "
+        "pull request. Its description: what changes and why, the public source (their result first, never the "
+        "lab's own), the exact commands that were run and what they printed, what was NOT checked, and this "
+        "sentence unchanged: 'This change was prepared with an AI assistant and opened from the account of Juwen "
+        "Lie, an engineer, not a mathematician; no mathematician has read it.' No claim about the lab's own "
+        "results, no link to the lab's papers.\n"
+        "5. Write into the target: state 'opened', opened_on (ISO date), pr_url. Nothing else is posted.\n"
+        "Never: an issue or a comment that promotes a lab result, a submission to the OEIS (AI-generated "
+        "submissions are forbidden there), a second pull request to the same project, a review request to a named "
+        "person. Set this job done with the pull-request URL, or with the reason nothing was opened."
+    )
+
+
+def _watch_pr_text(target):
+    return (
+        f"Pull request {target.get('pr_url')} (target {target['id']} in collab/targets.json) is open. Read it and "
+        "its checks. Merged or closed: set the target's state to 'merged' or 'closed' with the date and one line "
+        "on why, and post nothing. A failed check caused by the change: fix it in the same branch, once. A "
+        "maintainer asked for a change or asked a question about the change: answer ONCE this week, factually, "
+        "with the commands that were run, and begin the comment with 'Written with an AI assistant.' A maintainer "
+        "asks for the person, for something only he can decide, or for anything the project's rules expect from a "
+        "human contributor: do not answer for him; set \"needs_juwen\": true and \"needs_juwen_why\" in the "
+        "target. No comment when nobody asked. Never argue with a decision to close."
+    )
+
+
+def project_pr_jobs(status_only=False, today=None):
+    """The recurring step for open projects (daily task, after the mail queue). A contribution that is 'ready'
+    and passes contribution_problems is handed to an AI session, which opens the pull request (user, 2026-11-26:
+    'do all for me'; before that a person had to open it). At most one hand-over per run. An opened pull request
+    gets one AI session a week that reads it and answers a maintainer. Unattended code posts nothing itself.
+    Returns the lines it would print."""
+    today = today or TODAY
+    rules = POLICY.get("project_contributions", {})
+    try:
+        targets = json.loads(TARGETS_FILE.read_text(encoding="utf-8")).get("targets", [])
+        queue = json.loads(RESEARCH_QUEUE.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return []
+    known = {job.get("id") for job in queue.get("jobs", [])}
+    lines, new_jobs = [], []
+    for target in targets:
+        if target.get("kind") != "project":
+            continue
+        name = f"project {target.get('id')}"
+        if target.get("state") == "ready":
+            problems = contribution_problems(target, targets, today)
+            if problems:
+                lines.append(f"{name}: waits ({'; '.join(problems)})")
+                continue
+            job_id = f"open_pr_{target['id']}_{str(target['ready_since']).replace('-', '')}"
+            if job_id in known:
+                lines.append(f"{name}: an AI session already has it ({job_id})")
+            elif status_only or any(job["id"].startswith("open_pr_") for job in new_jobs):
+                lines.append(f"{name}: allowed" + ("" if status_only else ", next run (one per run)"))
+            else:
+                new_jobs.append({"id": job_id, "project": "outreach", "status": "needs_ai",
+                                 "title": f"Open the pull request for {target['id']} ({target['repo']}) - "
+                                          "pre-approved, after every check in the job text",
+                                 "why": _open_pr_text(target, rules)})
+                lines.append(f"{name}: handed to an AI session to open the pull request ({job_id})")
+        elif target.get("state") == "opened" and target.get("pr_url") and rules.get("enabled"):
+            year, week, _ = today.isocalendar()
+            job_id = f"pr_watch_{target['id']}_{year}w{week:02d}"
+            if job_id in known or target.get("needs_juwen"):
+                continue
+            if status_only:
+                lines.append(f"{name}: this week's look at {target['pr_url']} is due")
+                continue
+            new_jobs.append({"id": job_id, "project": "outreach", "status": "needs_ai",
+                             "title": f"Read the open pull request of {target['id']} and answer a maintainer once",
+                             "why": _watch_pr_text(target)})
+            lines.append(f"{name}: queued this week's look at the pull request ({job_id})")
+    if new_jobs:
+        queue = json.loads(RESEARCH_QUEUE.read_text(encoding="utf-8"))  # read again: other writers are quick too
+        queue.setdefault("jobs", []).extend(new_jobs)
+        temporary = RESEARCH_QUEUE.with_suffix(".json.tmp_outreach")
+        temporary.write_text(json.dumps(queue, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        temporary.replace(RESEARCH_QUEUE)
+        try:
+            import ai_bridge  # hands it to the always-on agent
+
+            ai_bridge.bridge()
+        except Exception:
+            pass
+    return lines
 
 
 def mark(address, state):

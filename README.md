@@ -25,7 +25,12 @@ A small personal research tool around the Clay Millennium Prize problems. It has
    checks the certificate) and only then writes one offer: here is the report, this is what was not
    checked, would it help if the lab did more. An offer needs the finished report on disk, waits two days
    so it can be withdrawn, is made once and gets no follow-up. For open projects the desk prepares the
-   contribution and stops; the pull request is opened by a person. The daily mail lists all of it under
+   contribution and stops. Since 2026-11-26 an AI session opens the pull request (`outreach.project_pr_jobs`,
+   policy section `project_contributions`): after the Referee has passed the job that prepared it and two
+   days in which it can be withdrawn, one pull request per project in 30 days, with the AI help disclosed
+   in its description, and only after reading the project's contribution rules again on the day. A project
+   that asks for the person (a signed contributor agreement, or a contributor who can explain every line)
+   is never opened for him: the daily mail says "Needs you". The daily mail lists all of it under
    "People the lab works with".
    arXiv endorsement requests are a standing step too (`endorsement.py`): arXiv asks a first-time
    submitter to a category to forward a code to somebody who may endorse. The daily task asks one person

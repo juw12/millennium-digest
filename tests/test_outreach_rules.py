@@ -51,6 +51,7 @@ def setup(folder, policy_changes=None):
     outreach.QUEUE_DIR.mkdir(exist_ok=True)
     outreach.RESEARCH_QUEUE = folder / "research_queue.json"
     outreach.RESEARCH_QUEUE.write_text(json.dumps({"jobs": []}), encoding="utf-8")
+    outreach.TARGETS_FILE = folder / "collab" / "targets.json"
     plan = folder / "PLAN.md"
     plan.write_text("plan", encoding="utf-8")
     evidence = outreach.QUEUE_DIR / "a-EVIDENCE.json"
@@ -283,6 +284,77 @@ def main():
         check("queue: a send Gmail does not confirm becomes a draft and is not tried again",
               json.loads(third.read_text(encoding="utf-8")).get("_drafted") == TODAY.isoformat()
               and outreach.load_ledger()["contacts"][-1]["state"] == "drafted" and list(outreach.waiting_specs()) == [])
+
+    with tempfile.TemporaryDirectory() as folder:  # contributions for open projects
+        setup(folder)
+        folder = Path(folder)
+        (folder / "collab" / "p" / "contribution").mkdir(parents=True)
+        (folder / "collab" / "p" / "contribution" / "READY.md").write_text("ready", encoding="utf-8")
+        ready = {"id": "p", "kind": "project", "state": "ready", "repo": "owner/name", "ready_job": "lab_collab_1",
+                 "ready_file": "collab/p/contribution/READY.md", "ready_since": (TODAY - dt.timedelta(days=1)).isoformat()}
+
+        def projects(*targets, referee=None):
+            outreach.TARGETS_FILE.write_text(json.dumps({"targets": list(targets)}), encoding="utf-8")
+            jobs = [job for job in json.loads(outreach.RESEARCH_QUEUE.read_text(encoding="utf-8"))["jobs"]
+                    if job["id"] != "lab_collab_1"]
+            jobs.append({"id": "lab_collab_1", "status": "done", **({"referee": referee} if referee else {})})
+            outreach.RESEARCH_QUEUE.write_text(json.dumps({"jobs": jobs}), encoding="utf-8")
+
+        def queued(prefix):
+            return [job for job in json.loads(outreach.RESEARCH_QUEUE.read_text(encoding="utf-8"))["jobs"]
+                    if job["id"].startswith(prefix)]
+
+        projects(ready)
+        lines = outreach.project_pr_jobs()
+        check("project: a contribution waits for the Referee and for its cool-off",
+              queued("open_pr_") == [] and "Referee has not passed lab_collab_1" in lines[0]
+              and "2 days later" in lines[0], str(lines))
+        ready["ready_since"] = (TODAY - dt.timedelta(days=2)).isoformat()
+        projects(ready, referee="fix: the count is off")
+        check("project: 'fix' from the Referee is not a pass", queued("open_pr_") == [] and "fix" in outreach.project_pr_jobs()[0])
+        projects(ready, referee="pass - re-run, numbers match")
+        check("project: --status hands nothing over", "allowed" in outreach.project_pr_jobs(status_only=True)[0]
+              and queued("open_pr_") == [])
+        projects(dict(ready, needs_juwen=True, needs_juwen_why="a CLA"), referee="pass")
+        check("project: one that needs Juwen is never handed over",
+              "needs Juwen: a CLA" in outreach.project_pr_jobs()[0] and queued("open_pr_") == [])
+        projects(dict(ready, _withdrawn=True), referee="pass")
+        check("project: a withdrawn one is never handed over",
+              "withdrawn" in outreach.project_pr_jobs()[0] and queued("open_pr_") == [])
+        earlier = {"id": "q", "kind": "project", "state": "opened", "repo": "owner/name",
+                   "opened_on": (TODAY - dt.timedelta(days=10)).isoformat()}
+        projects(ready, earlier, referee="pass")
+        check("project: one pull request per project in 30 days",
+              "10 days ago" in outreach.project_pr_jobs()[0] and queued("open_pr_") == [])
+        outreach.POLICY["project_contributions"]["enabled"] = False
+        projects(ready, referee="pass")
+        check("project: switched off in the policy means nothing is handed over",
+              "switched off" in outreach.project_pr_jobs()[0] and queued("open_pr_") == [])
+        outreach.POLICY["project_contributions"]["enabled"] = True
+        second = dict(ready, id="p2", repo="other/name")
+        projects(ready, second, referee="pass")
+        lines = outreach.project_pr_jobs()
+        jobs = queued("open_pr_")
+        check("project: passed, waited, not withdrawn: ONE AI session job per run, the other next run",
+              len(jobs) == 1 and jobs[0]["id"] == f"open_pr_p_{ready['ready_since'].replace('-', '')}"
+              and jobs[0]["status"] == "needs_ai" and "next run" in lines[1], str(lines))
+        text = jobs[0]["why"]
+        check("project: the job says to re-read the project's rules, to disclose the AI help and when to leave it to Juwen",
+              "rule on AI help again" in text and "prepared with an AI assistant" in text and "needs_juwen" in text
+              and "owner/name" in text and "juw12" in text, text)
+        outreach.project_pr_jobs()
+        check("project: the same contribution is handed over once", len(queued("open_pr_p_")) == 1
+              and len(queued("open_pr_p2_")) == 1)
+        opened = dict(ready, state="opened", opened_on=TODAY.isoformat(), pr_url="https://example.org/pull/7")
+        projects(opened, referee="pass")
+        outreach.project_pr_jobs()
+        outreach.project_pr_jobs()
+        watch = queued("pr_watch_")
+        check("project: an open pull request gets one look a week",
+              len(watch) == 1 and watch[0]["id"] == "pr_watch_p_2026w48" and "https://example.org/pull/7" in watch[0]["why"]
+              and "Written with an AI assistant" in watch[0]["why"], str(watch))
+        projects({"id": "z", "kind": "people", "state": "ready"}, referee="pass")
+        check("project: a people target is none of this step's business", outreach.project_pr_jobs() == [])
 
     print(f"\n{len(FAILURES)} failed" if FAILURES else "\nall checks passed")
     return 1 if FAILURES else 0

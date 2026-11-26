@@ -417,6 +417,11 @@ def _queue_ai_answer(name, entry, draft_path, answered=False):
     cowork = (" If this person is a target in collab/targets.json, set its state to 'answered' with the date and "
               "one line on what they asked for, and make what they asked for the target's next step: their "
               "request comes before the lab's own plans.")
+    personal = (" If they ask for something only Juwen can decide or do (a call or a meeting, a visit, money, a "
+                "signature, his employer, co-authorship, his own background): do not decide it for him and do not "
+                "write as if he had. Answer the rest, say that he will answer that part himself, and add one line "
+                "'- [ ] <date> <who>: <what they asked> (<thread link>)' to collab/NEEDS_JUWEN.md; the daily mail "
+                "shows it under 'Needs you' until the box is ticked.")
     title = f"Answer {name} (they replied) - AI session writes AND sends it"
     why = f"Reply saved; starting draft at {draft_path}. Send from the Gmail thread after the policy checks."
     if answered:
@@ -425,7 +430,7 @@ def _queue_ai_answer(name, entry, draft_path, answered=False):
                "do NOT write to this person again. Read the reply, check what it says against public sources, "
                "and record what it changes: prior art, public notes and papers that are now out of date, "
                "queue jobs that rest on the old state, and any endorsement request that names this topic.")
-    why += cowork
+    why += cowork + personal
     queue.setdefault("jobs", []).append({
         "id": job_id, "title": title, "project": "outreach", "status": "needs_ai", "why": why,
     })

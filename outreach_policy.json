@@ -53,6 +53,14 @@
       "what would be useful"
     ]
   },
+  "project_contributions": {
+    "_what": "2026-11-26 user: 'do all for me so its 10/10'. Until then a contribution the Partnerships desk had prepared for an open project waited for Juwen to open the pull request himself. Now an AI session opens it, under the rules a co-work offer has: the Referee passed the job that prepared it (ready_job), it waited cool_off_days after ready_since so the daily mail shows it and anybody can withdraw it (\"_withdrawn\": true in the target), one pull request per project in min_days_between_pull_requests_per_project days, one hand-over per daily run. The session reads the project's contribution rules and its rule on AI help again on the day, re-runs every check, and writes the AI disclosure into the description. What stays with Juwen, because a project asks for the person and not for the text: a signed contributor agreement (a CLA is a legal agreement in his name and may touch his employer), and any project whose rule is that the contributor can personally explain and defend every line. Such a target gets needs_juwen and is shown in the daily mail under 'Needs you'. Unattended code posts nothing; outreach.project_pr_jobs only queues the job.",
+    "enabled": true,
+    "ready_must_pass_referee": true,
+    "cool_off_days": 2,
+    "min_days_between_pull_requests_per_project": 30,
+    "github_account": "juw12"
+  },
   "recurring": {
     "_what": "Outreach is a standing activity, not a one-off. Specs wait in outbox/outreach/; the daily task 'Millennium follow-up drafts' runs outreach.run_queue and sends the next one the rules allow. Once a week an AI session looks for a new checked result worth one question to one researcher.",
     "max_sends_per_run": 1,
