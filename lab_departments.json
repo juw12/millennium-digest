@@ -50,7 +50,7 @@
     {
       "id": "collab",
       "name": "Partnerships",
-      "bot": "Paul",
+      "bot": "Sophie",
       "problem": "People and open projects that can take a problem further than the lab can",
       "role": "Replays other people's public computer-assisted results, then offers the replay; prepares contributions for open projects",
       "color": 2,
