@@ -414,6 +414,9 @@ def _queue_ai_answer(name, entry, draft_path, answered=False):
     job_id = f"answer_{entry['to'].split('@')[0]}_{dt.date.today():%Y%m%d}"
     if any(job.get("id") == job_id for job in queue.get("jobs", [])):
         return
+    cowork = (" If this person is a target in collab/targets.json, set its state to 'answered' with the date and "
+              "one line on what they asked for, and make what they asked for the target's next step: their "
+              "request comes before the lab's own plans.")
     title = f"Answer {name} (they replied) - AI session writes AND sends it"
     why = f"Reply saved; starting draft at {draft_path}. Send from the Gmail thread after the policy checks."
     if answered:
@@ -422,6 +425,7 @@ def _queue_ai_answer(name, entry, draft_path, answered=False):
                "do NOT write to this person again. Read the reply, check what it says against public sources, "
                "and record what it changes: prior art, public notes and papers that are now out of date, "
                "queue jobs that rest on the old state, and any endorsement request that names this topic.")
+    why += cowork
     queue.setdefault("jobs", []).append({
         "id": job_id, "title": title, "project": "outreach", "status": "needs_ai", "why": why,
     })

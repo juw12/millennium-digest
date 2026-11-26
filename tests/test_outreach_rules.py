@@ -143,13 +143,35 @@ def main():
         offer_body = BODY.replace("Is the bound known?", "I replayed your archive. Would it help if I checked step 3?")
 
         def offer(written_days_ago=3, body=offer_body, **changes):
-            data = {"kind": "cowork", "work_done": True, "report": str(report),
+            data = {"kind": "cowork", "work_done": True, "report": str(report), "report_job": "lab_collab_1",
                     "their_public_source": "https://example.org/archive",
                     "written": (TODAY - dt.timedelta(days=written_days_ago)).isoformat(), **changes}
             evidence.write_text(json.dumps(data), encoding="utf-8")
             spec = dict(json.loads(spec_path.read_text(encoding="utf-8")), body=body)
             spec_path.write_text(json.dumps(spec), encoding="utf-8")
 
+        def referee(word):
+            job = {"id": "lab_collab_1", "status": "done", **({"referee": word} if word else {})}
+            outreach.RESEARCH_QUEUE.write_text(json.dumps({"jobs": [job]}), encoding="utf-8")
+
+        offer()
+        referee(None)
+        check("co-work: a report the Referee has not re-run waits",
+              any("not re-run yet" in p for p in problems_for(spec_path, [])), str(problems_for(spec_path, [])))
+        referee("fix")
+        check("co-work: a report the Referee sent back waits",
+              any("has not passed lab_collab_1 (fix)" in p for p in problems_for(spec_path, [])))
+        referee("pass")
+        offer(report_job="")
+        check("co-work: an offer that does not name the job behind its report is refused",
+              any("report_job" in p for p in problems_for(spec_path, [])))
+        offer(report_job="lab_collab_9")
+        check("co-work: a job the queue does not know has no verdict",
+              any("lab_collab_9" in p for p in problems_for(spec_path, [])))
+        outreach.POLICY["cowork"]["report_must_pass_referee"] = False
+        check("co-work: with the Referee rule switched off the same offer is allowed",
+              problems_for(spec_path, []) == [], str(problems_for(spec_path, [])))
+        outreach.POLICY["cowork"]["report_must_pass_referee"] = True
         offer()
         check("co-work: an offer with a finished report, after the cool-off, is allowed (no study plan needed)",
               problems_for(spec_path, []) == [], str(problems_for(spec_path, [])))

@@ -185,6 +185,16 @@ def check_rules(spec, ledger, is_follow_up=False):
     return problems
 
 
+def referee_verdict(job_id):
+    """The Referee's word on a queue job ('pass', 'fix', 'fail'), or None when it has not been re-run. The
+    Referee re-runs a finished job's work in a job of its own; lab_pool writes its verdict on to the job."""
+    try:
+        jobs = json.loads(RESEARCH_QUEUE.read_text(encoding="utf-8")).get("jobs", [])
+    except (OSError, ValueError):
+        return None
+    return next((job.get("referee") for job in jobs if job.get("id") == job_id), None)
+
+
 def cowork_problems(evidence, body):
     """Rules for a co-work offer. The work comes first: the report of what the lab did with the recipient's own
     public result must exist before anybody is written to, the mail waits a few days so it can be read and
@@ -196,6 +206,14 @@ def cowork_problems(evidence, body):
         problems.append("co-work offer: the finished report of the lab's own work on their result is missing")
     if not evidence.get("their_public_source"):
         problems.append("co-work offer: no public source for the result of theirs that the lab worked on")
+    if rules.get("report_must_pass_referee"):  # nobody is told about their own work on one job's word
+        report_job = evidence.get("report_job")
+        verdict = referee_verdict(report_job) if report_job else None
+        if not report_job:
+            problems.append("co-work offer: EVIDENCE.json does not name report_job, the job that wrote the report")
+        elif verdict != "pass":
+            problems.append(f"co-work offer: the Referee has not passed {report_job} "
+                            f"({verdict or 'not re-run yet'}); the report is one job's word until then")
     written = evidence.get("written")
     cool_off = rules.get("cool_off_days", 2)
     try:
@@ -406,7 +424,10 @@ def weekly_review_job(today=None):
             "there is something new for them (gmail_compose.send_now, same rules). Promotion: only a public note or "
             "release for a checked result; never post a claim that no mathematician has read as a result, and never "
             "write to a mailing list or to several people. Nothing new this week: write no e-mail, set the job done "
-            "with result 'nothing new'."
+            "with result 'nothing new'. Co-work offers (collab/PROTOCOL.md, collab/targets.json) are written by "
+            "the Partnerships desk, not by you; but read every offer that waits in outbox/outreach/ next to its "
+            "report, and put \"_withdrawn\": true into one whose report you would not stand behind, with the "
+            "reason in \"_withdrawn_why\"."
         ),
     })
     RESEARCH_QUEUE.write_text(json.dumps(queue, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
