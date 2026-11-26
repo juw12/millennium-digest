@@ -62,8 +62,8 @@ DEFAULT_TALOS_DIR = r"E:\Projects\talos"  # Talos (OpenCode + Hermes agent, gith
 OPEN = ("needs_ai", "running")
 # The Referee comes right after the Director: it holds one slot, and a claim nobody re-ran is what every later
 # idea would be built on (2026-11-10: 83 finished results waited for it, 38 of them claiming progress).
-PRIORITY = ["director", "flagship", "review", "squares", "erdos", "panel", "prize", "writer", "tools", "bsd", "rh",
-            "scout"]
+PRIORITY = ["director", "flagship", "review", "squares", "erdos", "panel", "prize", "collab", "bsd", "writer",
+            "tools", "rh", "scout"]
 INFRASTRUCTURE = ("copilot not logged in", "copilot out of quota", "copilot offline",
                   "no connection")  # not the job's fault
 DETACHED = 0x00000008 | 0x00000200 | 0x08000000 | 0x00000020  # DETACHED | NEW_GROUP | NO_WINDOW | NORMAL priority

@@ -11,8 +11,8 @@ A small personal research tool around the Clay Millennium Prize problems. It has
    It reads only: it never emails anyone.
 2. **Outreach guard** (`outreach.py`): helps write to researchers without spamming them. It checks every
    draft against the rules in `outreach_policy.json` before opening a Gmail compose window, and keeps a
-   ledger of who was contacted and when. Rules include: one recipient per email, at most 2 new contacts
-   per 7 days and 8 per 30 days, 60 days before the same person hears of a new result, at most one
+   ledger of who was contacted and when. Rules include: one recipient per email, at most 3 new contacts
+   per 7 days and 10 per 30 days, 60 days before the same person hears of a new result, at most one
    follow-up, one unanswered email per person, an AI-assistance disclosure, a "no reply is needed" line,
    a specific question, and a citation of the person's own work. An email that only asks whether
    something is known or right may go out before the claim is settled, if it says what is unchecked.
@@ -20,6 +20,13 @@ A small personal research tool around the Clay Millennium Prize problems. It has
    allow (`python outreach.py queue`), and once a week an AI session checks whether there is a new
    checked result worth one question to one researcher. Anything that fails a rule waits; a send Gmail
    does not confirm stays a draft.
+   Co-work offers (since 2026-11-26): the lab cannot finish its problems alone, so the Partnerships desk
+   first does work on somebody else's public computer-assisted result (replays it on a clean machine,
+   checks the certificate) and only then writes one offer: here is the report, this is what was not
+   checked, would it help if the lab did more. An offer needs the finished report on disk, waits two days
+   so it can be withdrawn, is made once and gets no follow-up. For open projects the desk prepares the
+   contribution and stops; the pull request is opened by a person. The daily mail lists all of it under
+   "People the lab works with".
    arXiv endorsement requests are a standing step too (`endorsement.py`): arXiv asks a first-time
    submitter to a category to forward a code to somebody who may endorse. The daily task asks one person
    at a time, the next one only after 7 days of silence, three people at most, nobody once anybody

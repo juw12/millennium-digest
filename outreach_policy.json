@@ -2,8 +2,8 @@
   "_purpose": "Rules that keep expert outreach from being spam. outreach.py refuses to draft anything that breaks a rule.",
   "never_auto_send": false,
   "one_recipient_per_email": true,
-  "max_new_drafts_per_30_days": 8,
-  "max_new_contacts_per_7_days": 2,
+  "max_new_drafts_per_30_days": 10,
+  "max_new_contacts_per_7_days": 3,
   "min_days_between_contacts_same_person": 60,
   "max_unanswered_emails_per_person": 1,
   "follow_up_after_days_without_reply": 21,
@@ -39,6 +39,18 @@
       "unchecked"
     ]
   },
+  "cowork": {
+    "_what": "2026-11-26 user: 'if u cannot then find ppl who can reach them out and cowork'. A co-work offer is not a claim and not a question about the lab's own result. The lab first does work on the other person's OWN public result (replays their computer-assisted proof on a clean machine, checks their certificate, writes one step in Lean), and only then writes: here is the report, this is what was and was not checked, would it help you if the lab did X. Its EVIDENCE.json says kind 'cowork' with report (the finished report file), work_done true, their_public_source and written (ISO date). It waits cool_off_days after 'written' so the daily mail can show it and an AI session or Juwen can withdraw it. It is made once: no follow-up, silence means no. To somebody whose last word was an answer it is part of a conversation: it does not count as a new contact and may go out min_days_since_last_mail_in_a_conversation days after the lab's last mail (one unanswered e-mail per person still holds). Everything else is unchanged: one recipient, 420 words, AI disclosure, 'no reply is needed', their own paper cited, a public source for the address. Never: asking for co-authorship, an endorsement, a recommendation or a reading of the lab's own papers in a co-work offer; never offering work the lab has not finished.",
+    "enabled": true,
+    "cool_off_days": 2,
+    "min_days_since_last_mail_in_a_conversation": 7,
+    "must_ask_what_would_help": [
+      "would it help",
+      "would it be useful",
+      "what would help",
+      "what would be useful"
+    ]
+  },
   "recurring": {
     "_what": "Outreach is a standing activity, not a one-off. Specs wait in outbox/outreach/; the daily task 'Millennium follow-up drafts' runs outreach.run_queue and sends the next one the rules allow. Once a week an AI session looks for a new checked result worth one question to one researcher.",
     "max_sends_per_run": 1,
@@ -51,7 +63,7 @@
     "pause_when_anyone_replies": true
   },
   "auto_send_follow_ups": true,
-  "_auto_send_note": "2026-11-07 user: follow-ups, updates/replies AND first contacts are sent automatically. 2026-11-25 user: 'my lab own rule u can change, not only for contact but emails sent too, make it usual thing recurring ... can ask and if promote need then can try'. So the pace is now steady instead of rare: at most 2 new people in 7 days and 8 in 30 days (was 2 in 30), 60 days before the same person hears of a NEW result (was 180), and a question may be asked before every gate has passed if it says what is unchecked. Unchanged, because they are what keeps this from being spam: one recipient, 420 words, AI disclosure, 'no reply is needed', one specific question, the expert's own paper cited, a public source for the address, one unanswered e-mail per person, one follow-up at most, never again after 'declined'. The AI session may adjust these numbers when the results justify it and must write the reason here.",
+  "_auto_send_note": "2026-11-07 user: follow-ups, updates/replies AND first contacts are sent automatically. 2026-11-25 user: 'my lab own rule u can change, not only for contact but emails sent too, make it usual thing recurring ... can ask and if promote need then can try'. So the pace is now steady instead of rare: at most 2 new people in 7 days and 8 in 30 days (was 2 in 30), 60 days before the same person hears of a NEW result (was 180), and a question may be asked before every gate has passed if it says what is unchecked. Unchanged, because they are what keeps this from being spam: one recipient, 420 words, AI disclosure, 'no reply is needed', one specific question, the expert's own paper cited, a public source for the address, one unanswered e-mail per person, one follow-up at most, never again after 'declined'. The AI session may adjust these numbers when the results justify it and must write the reason here. 2026-11-26: 3 new people in 7 days and 10 in 30 days (was 2 and 8). Reason: 4 of the 7 people written to so far answered, all with substance, nobody declined; and the user asked for people to work with ('find ppl who can reach them out and cowork'). The extra room is meant for co-work offers (section 'cowork'), which need finished work first, so the number of mails is limited by the work, not by this cap.",
   "ai_session_sends_updates_and_replies": true,
   "_ai_send_note": "2026-11-07 user: 'u do all urself'. Updates and answers to experts who are already in contact are written AND sent by the AI session (same rules: word limit, AI disclosure, no-obligation line, question). Unattended scripts never send generated answers; gmail_inbox.py queues a needs_ai job instead. First contacts go through outreach.py propose or the queue (approved 2026-11-07, recurring since 2026-11-25).",
   "auto_send_first_contact": true

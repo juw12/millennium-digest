@@ -1,7 +1,8 @@
 """Daily report to Juwen (task "Millennium daily report", 07:30): what the lab did yesterday, in one email.
 
 Sections: flagship ledger (the one result that matters), machine-checked results, all output by desk, the Kaggle
-score, tokens, slot plan, anything that went wrong (outages, the PC off, failures), and the usage part from
+score, tokens, slot plan, the people the lab works with (co-work targets, mail waiting to go out, contributions
+ready to be opened), anything that went wrong (outages, the PC off, failures), and the usage part from
 usage_report.py: tokens, jobs and results per AI app and per model. Every number is read from the lab's own
 files; nothing is estimated. The mail is HTML in the look of the AICC leaderboard mail (cards, tables, 14-day
 token bars); the note and the history file hold the same text as Markdown.
@@ -82,6 +83,42 @@ def checked_steps(newly, info, tokens):
     return line, f"{len(newly)} ({len(by_lab)} by lab workers)"
 
 
+def people_lines(root=None):
+    """The 'People' section: where each co-work target stands (collab/targets.json, kept by the Partnerships
+    desk), every mail still waiting in outbox/outreach/ - so it can be read, and withdrawn by putting
+    "_withdrawn" into its file, before the queue sends it - and contributions for open projects that wait for
+    Juwen to open them. Read from files only; an unreadable file is skipped."""
+    root = Path(root) if root else ROOT
+    targets = (_read(root / "collab" / "targets.json", {}) or {}).get("targets", [])
+    lines = []
+    if targets:
+        states = collections.Counter(str(target.get("state", "?")) for target in targets)
+        lines.append("- Co-work targets: " + ", ".join(f"{count} {state}" for state, count in states.most_common()))
+        for target in sorted(targets, key=lambda item: item.get("priority", 99))[:6]:
+            lines.append(f"  - {target.get('id')}: {target.get('state', '?')} - next: {str(target.get('next', '-'))[:200]}")
+    else:
+        lines.append("- Co-work targets: none recorded yet")
+    waiting = []
+    for path in sorted((root / "outbox" / "outreach").glob("*.json")):
+        if path.name.endswith("EVIDENCE.json"):
+            continue
+        spec = _read(path, {}) or {}
+        if not all(key in spec for key in ("to", "subject", "body")):
+            continue
+        if spec.get("_sent") or spec.get("_drafted") or spec.get("_withdrawn"):
+            continue
+        blocked = "; ".join((spec.get("_last_refusal") or {}).get("rules", []))[:200]
+        waiting.append(f"  - {path.name} to {spec['to']}: \"{spec['subject']}\""
+                       + (f" - waits: {blocked}" if blocked else " - goes out on the next run the rules allow"))
+    lines.append(f"- Mail waiting to go out: {len(waiting)}"
+                 + (" (to stop one, put \"_withdrawn\": true into its file)" if waiting else ""))
+    lines += waiting
+    ready = [target for target in targets if target.get("state") == "ready"]
+    for target in ready:
+        lines.append(f"- Ready for you to open yourself: {target.get('id')} - {target.get('ready_file', 'see collab/')}")
+    return lines
+
+
 def build(day=None, usage=None, parts=None):
     """(subject, markdown text) for `day` (default: yesterday). `usage` = usage_report.collect(day) when the
     caller has it (the usage part is left out when it is None); `parts`, when given, receives the headline and
@@ -142,6 +179,7 @@ def build(day=None, usage=None, parts=None):
                  f"{talos_tokens / 1e9:.2f} B (target 1 B)" if tokens else "- Tokens: not recorded")
     if plan.get("slots"):
         lines.append(f"- Slots ({plan.get('date')}): " + ", ".join(f"{k} {v}" for k, v in plan["slots"].items()))
+    lines += ["", "## People the lab works with"] + people_lines()
     lines += ["", "## Problems"]
     problems = [f"- No pool activity {a:%H:%M}-{b:%H:%M} ({(b - a).total_seconds() / 3600:.1f} h): PC off, asleep "
                 "or the pool stuck" for a, b in gaps]

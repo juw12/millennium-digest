@@ -13,6 +13,11 @@ Commands
   python outreach.py queue                        send the next waiting spec in outbox/outreach/ the rules allow
   python outreach.py queue --status               list the waiting specs and what blocks each; change nothing
 
+A co-work offer (2026-11-26) is a spec whose EVIDENCE.json says kind 'cowork': the lab has already done work on
+the recipient's own public result (a replay, a formal check) and offers it. It needs the finished report, a
+cool-off between writing and sending, and a question about what would help; it gets no follow-up. To somebody
+who has answered before it is part of a conversation, not a new contact.
+
 A spec is a JSON file with to, topic, subject, body and evidence (path to an EVIDENCE.json). Optional keys:
 _expert_entry (added to experts.json on the first run), _not_before (ISO date). The queue writes _sent,
 _drafted or _last_refusal back into the spec, so a file is never sent twice.
@@ -57,6 +62,44 @@ def days_since(iso_date):
     return (TODAY - dt.date.fromisoformat(iso_date)).days
 
 
+def read_evidence(spec):
+    """The spec's EVIDENCE.json as a dict, or None when it is missing or unreadable."""
+    path = spec.get("evidence")
+    if not path or not Path(path).exists():
+        return None
+    try:
+        return json.loads(Path(path).read_text(encoding="utf-8"))
+    except ValueError:
+        return None
+
+
+def is_cowork(spec):
+    """A co-work offer: the lab has finished work on the recipient's own public result and offers it."""
+    evidence = read_evidence(spec)
+    return bool(POLICY.get("cowork", {}).get("enabled") and evidence and evidence.get("kind") == "cowork")
+
+
+def last_mail_date(entry):
+    """The day of the lab's last e-mail inside one ledger entry (first mail, answer or update)."""
+    dates = [entry["date"], entry.get("sent_date"), entry.get("answer_sent_date")]
+    dates += [update.get("date") for update in entry.get("updates_sent", []) if isinstance(update, dict)]
+    return max(date for date in dates if date)
+
+
+def in_conversation(spec, ledger):
+    """True when this is a co-work offer to somebody whose last word to the lab was an answer. Such a mail is
+    part of a conversation: it does not count as a new contact and waits days, not months."""
+    to = spec["to"].strip().lower()
+    history = [c for c in ledger["contacts"] if c["to"] == to]
+    return bool(history) and history[-1]["state"] == "replied" and is_cowork(spec)
+
+
+def new_contacts(ledger, days):
+    """First contacts in the last `days` days: follow-ups and mails inside a conversation are not new people."""
+    return [c for c in ledger["contacts"]
+            if days_since(c["date"]) < days and not c.get("follow_up") and not c.get("conversation")]
+
+
 def check_rules(spec, ledger, is_follow_up=False):
     """Returns a list of rule violations (empty list = allowed)."""
     problems = []
@@ -92,16 +135,23 @@ def check_rules(spec, ledger, is_follow_up=False):
     if not is_follow_up:
         if len(unanswered) >= POLICY["max_unanswered_emails_per_person"]:
             problems.append("there is already an unanswered email to this person")
-        recent = [c for c in history if days_since(c["date"]) < POLICY["min_days_between_contacts_same_person"]]
-        if recent:
-            problems.append(f"contacted {days_since(recent[-1]['date'])} days ago; wait {POLICY['min_days_between_contacts_same_person']} days")
-        new_last_30 = [c for c in ledger["contacts"] if days_since(c["date"]) < 30 and not c.get("follow_up")]
-        if len(new_last_30) >= POLICY["max_new_drafts_per_30_days"]:
-            problems.append(f"{len(new_last_30)} new contacts in the last 30 days; limit {POLICY['max_new_drafts_per_30_days']}")
-        weekly_limit = POLICY.get("max_new_contacts_per_7_days")
-        new_last_7 = [c for c in new_last_30 if days_since(c["date"]) < 7]
-        if weekly_limit is not None and len(new_last_7) >= weekly_limit:
-            problems.append(f"{len(new_last_7)} new contacts in the last 7 days; limit {weekly_limit} (a steady pace, not a burst)")
+        conversation = in_conversation(spec, ledger)
+        if conversation:  # they answered: the lab may write again after days, with finished work in hand
+            wait = POLICY["cowork"].get("min_days_since_last_mail_in_a_conversation", 7)
+            quiet = days_since(last_mail_date(history[-1]))
+            if quiet < wait:
+                problems.append(f"last e-mail to this person was {quiet} days ago; in a conversation wait {wait} days")
+        else:
+            recent = [c for c in history if days_since(c["date"]) < POLICY["min_days_between_contacts_same_person"]]
+            if recent:
+                problems.append(f"contacted {days_since(recent[-1]['date'])} days ago; wait {POLICY['min_days_between_contacts_same_person']} days")
+            new_last_30 = new_contacts(ledger, 30)
+            if len(new_last_30) >= POLICY["max_new_drafts_per_30_days"]:
+                problems.append(f"{len(new_last_30)} new contacts in the last 30 days; limit {POLICY['max_new_drafts_per_30_days']}")
+            weekly_limit = POLICY.get("max_new_contacts_per_7_days")
+            new_last_7 = new_contacts(ledger, 7)
+            if weekly_limit is not None and len(new_last_7) >= weekly_limit:
+                problems.append(f"{len(new_last_7)} new contacts in the last 7 days; limit {weekly_limit} (a steady pace, not a burst)")
         holds = [c for c in ledger["contacts"] if c.get("topic") == spec.get("topic") and c.get("hold_until")]
         for held in holds:
             if TODAY < dt.date.fromisoformat(held["hold_until"]) and held["to"] != to:
@@ -112,22 +162,56 @@ def check_rules(spec, ledger, is_follow_up=False):
             problems.append("no EVIDENCE.json for the study (pre-registration + gates)")
         else:
             evidence = json.loads(Path(evidence_file).read_text(encoding="utf-8"))
-            if not Path(evidence.get("preregistration", "")).exists():
-                problems.append("pre-registration file missing")
             question = POLICY.get("question_mail", {})
-            if evidence.get("kind") == "question" and question.get("allowed_before_all_gates"):
-                # A question may go out before the claim is settled, but only as a question: the steps it
-                # rests on are checked, and the body says in plain words what nobody has checked.
-                if not evidence.get("question_gates_passed"):
-                    problems.append("question e-mail: the checks it rests on have not passed")
-                if not any(needle.lower() in body.lower() for needle in question.get("must_say_what_is_unchecked", [])):
-                    problems.append("question e-mail must say plainly what has not been checked")
-            elif not evidence.get("all_gates_passed"):
-                problems.append("study gates have not all passed")
+            if is_cowork(spec):  # an offer of finished work has its own evidence: the report, not a study plan
+                problems += cowork_problems(evidence, body)
+            else:
+                if not Path(evidence.get("preregistration", "")).exists():
+                    problems.append("pre-registration file missing")
+                if evidence.get("kind") == "question" and question.get("allowed_before_all_gates"):
+                    # A question may go out before the claim is settled, but only as a question: the steps it
+                    # rests on are checked, and the body says in plain words what nobody has checked.
+                    if not evidence.get("question_gates_passed"):
+                        problems.append("question e-mail: the checks it rests on have not passed")
+                    if not any(needle.lower() in body.lower()
+                               for needle in question.get("must_say_what_is_unchecked", [])):
+                        problems.append("question e-mail must say plainly what has not been checked")
+                elif not evidence.get("all_gates_passed"):
+                    problems.append("study gates have not all passed")
             if attachment:
                 same_report = [c for c in history if c.get("report_hash") == file_hash(attachment)]
                 if same_report:
                     problems.append("this person already received this exact report")
+    return problems
+
+
+def cowork_problems(evidence, body):
+    """Rules for a co-work offer. The work comes first: the report of what the lab did with the recipient's own
+    public result must exist before anybody is written to, the mail waits a few days so it can be read and
+    withdrawn, and it asks what would help instead of announcing a result."""
+    rules = POLICY["cowork"]
+    problems = []
+    report = evidence.get("report", "")
+    if not evidence.get("work_done") or not report or not Path(report).exists():
+        problems.append("co-work offer: the finished report of the lab's own work on their result is missing")
+    if not evidence.get("their_public_source"):
+        problems.append("co-work offer: no public source for the result of theirs that the lab worked on")
+    written = evidence.get("written")
+    cool_off = rules.get("cool_off_days", 2)
+    try:
+        waited = days_since(written)
+    except (TypeError, ValueError):
+        problems.append("co-work offer: EVIDENCE.json has no 'written' date (ISO)")
+    else:
+        if waited < cool_off:
+            problems.append(f"co-work offer: written {written}; it may go out {cool_off} days later "
+                            "(so it can be read and withdrawn first)")
+    unchecked = POLICY.get("question_mail", {}).get("must_say_what_is_unchecked", [])
+    if not any(needle.lower() in body.lower() for needle in unchecked):
+        problems.append("co-work offer must say plainly what has not been checked")
+    if not any(needle.lower() in body.lower() for needle in rules.get("must_ask_what_would_help", [])):
+        problems.append("co-work offer must ask what would help them "
+                        f"({rules.get('must_ask_what_would_help', ['?'])[0]!r})")
     return problems
 
 
@@ -190,6 +274,11 @@ def propose(spec_path):
     }
     if spec.get("_no_follow_up"):  # for example an arXiv endorsement request: the next person is asked instead
         entry["no_follow_up"] = True
+    if is_cowork(spec):  # an offer of help is made once: silence means no
+        entry["no_follow_up"] = True
+        entry["kind"] = "cowork"
+        if in_conversation(spec, ledger):
+            entry["conversation"] = True
     if auto_send:
         import gmail_compose  # user approval 2026-11-07: first contacts are sent automatically (all rules above still apply)
         if gmail_compose.send_now(spec["to"], spec["subject"], spec["body"]):
@@ -432,9 +521,9 @@ def status():
     for entry in ledger["contacts"]:
         note = f"hold until {entry['hold_until']}" if entry.get("hold_until") else ("follow-up" if entry.get("follow_up") else "")
         print(f"{entry['to']:36} {str(entry.get('topic')):5} {entry['state']:10} {entry['date']:10} {note}")
-    new_last_30 = [c for c in ledger["contacts"] if days_since(c["date"]) < 30 and not c.get("follow_up")]
+    new_last_30 = new_contacts(ledger, 30)
     print(f"\nNew contacts in last 30 days: {len(new_last_30)} (limit {POLICY['max_new_drafts_per_30_days']})")
-    new_last_7 = [c for c in new_last_30 if days_since(c["date"]) < 7]
+    new_last_7 = new_contacts(ledger, 7)
     print(f"New contacts in last 7 days: {len(new_last_7)} (limit {POLICY.get('max_new_contacts_per_7_days', 'none')})")
     waiting = list(waiting_specs())
     print(f"Waiting in outbox/outreach: {len(waiting)}" + "".join(f"\n  {path.name} -> {spec['to']}" for path, spec in waiting))
