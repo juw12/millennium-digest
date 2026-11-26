@@ -44,6 +44,12 @@
     "max_sends_per_run": 1,
     "weekly_review": true
   },
+  "endorsement_requests": {
+    "_what": "2026-11-26 user: 'do the forward for me ... that would be automation too'. arXiv asks a first-time submitter for an endorsement and says to forward its code to someone who may endorse. endorsement.py does that as a standing step: it writes one request at a time into outbox/outreach/, and the queue sends it under every rule above. Only people arXiv itself lists as endorsers for the category, whose work the paper cites and whose address is printed in public, are on a need's list. The next person is asked after days_between_requests days of silence, at most max_people_per_need people per need, and nothing more goes out once anybody has answered until an AI session has read the answer. Why so few: an endorser vouches with their own name, and asking many people at once for one paper is what the rest of this file exists to prevent.",
+    "days_between_requests": 7,
+    "max_people_per_need": 3,
+    "pause_when_anyone_replies": true
+  },
   "auto_send_follow_ups": true,
   "_auto_send_note": "2026-11-07 user: follow-ups, updates/replies AND first contacts are sent automatically. 2026-11-25 user: 'my lab own rule u can change, not only for contact but emails sent too, make it usual thing recurring ... can ask and if promote need then can try'. So the pace is now steady instead of rare: at most 2 new people in 7 days and 8 in 30 days (was 2 in 30), 60 days before the same person hears of a NEW result (was 180), and a question may be asked before every gate has passed if it says what is unchecked. Unchanged, because they are what keeps this from being spam: one recipient, 420 words, AI disclosure, 'no reply is needed', one specific question, the expert's own paper cited, a public source for the address, one unanswered e-mail per person, one follow-up at most, never again after 'declined'. The AI session may adjust these numbers when the results justify it and must write the reason here.",
   "ai_session_sends_updates_and_replies": true,

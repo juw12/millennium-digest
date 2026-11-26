@@ -20,6 +20,11 @@ A small personal research tool around the Clay Millennium Prize problems. It has
    allow (`python outreach.py queue`), and once a week an AI session checks whether there is a new
    checked result worth one question to one researcher. Anything that fails a rule waits; a send Gmail
    does not confirm stays a draft.
+   arXiv endorsement requests are a standing step too (`endorsement.py`): arXiv asks a first-time
+   submitter to a category to forward a code to somebody who may endorse. The daily task asks one person
+   at a time, the next one only after 7 days of silence, three people at most, and nobody once anybody
+   has answered. Only people arXiv itself lists as endorsers for the category, whose work the paper
+   cites and whose address is printed in public, are asked.
 
 This is a hobby tool by an engineer, not a mathematician. It does not solve or claim progress on any
 Millennium problem.
@@ -86,6 +91,9 @@ python outreach.py propose <email_spec.json>  check every rule; if all pass, sen
 python outreach.py mark <address> <state>     record sent | replied | declined | do-not-contact
 python outreach.py followups                  at most one polite follow-up per person when due
 python outreach.py open <address>             reopen the saved Gmail draft for that person
+python endorsement.py status                  arXiv endorsement requests: who was asked when, what is next
+python endorsement.py endorsed <id>           arXiv has the endorsement: stop asking, reopen the upload job
+python endorsement.py stop <id>               stop asking for this need
 ```
 
 `gmail_send.py` (optional `send` command) needs a Gmail app password stored locally with Windows DPAPI;

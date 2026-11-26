@@ -11,6 +11,8 @@ no hand-written *_followup.txt, gets ONE short polite follow-up draft (subject "
 State (which follow-ups were drafted) is kept next to the outbox files, outside the public repo.
 The same daily run then works the outreach queue (outreach.run_queue): the next waiting spec in outbox/outreach/
 is sent if every rule in outreach_policy.json allows it; what happened is written to logs/outreach_queue.log.
+Before the queue, endorsement.tick() looks at the arXiv endorsement needs: when the last person asked has been
+silent long enough it writes the request to the next person into the queue (one at a time, never more).
 
   python followup_drafter.py            normal daily run
   python followup_drafter.py --status   print what would happen, change nothing
@@ -122,12 +124,18 @@ def plan(today):
 def run_outreach_queue(status_only=False):
     """The recurring outreach step. Never lets a failure here stop the follow-ups of the next day."""
     log_file = Path(__file__).resolve().parent / "logs" / "outreach_queue.log"
+    try:  # arXiv endorsement requests: may put one spec into the queue, which the queue below then sends
+        import endorsement
+
+        lines = [f"endorsement: {line}" for line in endorsement.tick(status_only=status_only)]
+    except Exception as error:
+        lines = [f"endorsement step failed: {error!r}"]
     try:
         import outreach
 
-        lines = outreach.run_queue(status_only=status_only)
+        lines += outreach.run_queue(status_only=status_only)
     except Exception as error:
-        lines = [f"queue run failed: {error!r}"]
+        lines.append(f"queue run failed: {error!r}")
     if status_only:
         return lines
     log_file.parent.mkdir(exist_ok=True)
