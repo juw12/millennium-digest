@@ -80,6 +80,7 @@ class Lab:
         endorsement.QUEUE_DIR = self.queue
         endorsement.LEDGER_FILE = self.ledger
         endorsement.RESEARCH_QUEUE = self.research_queue
+        endorsement.INBOX_DIR = self.root / "inbox"
         endorsement._tell_juwen = lambda *arguments: self.notices.append(arguments) or True
         self.notices = []
 
@@ -203,6 +204,45 @@ def main():
         (lab.needs / "half.json").write_text(json.dumps({"id": "x"}), encoding="utf-8")
         lines = endorsement.tick(today=DAY)
         check("a broken or half-written need file is skipped", len(lines) == 1 and len(lab.specs()) == 1)
+
+    with tempfile.TemporaryDirectory() as folder:
+        lab = Lab(folder, contacts=[sent("person1@example.org", DAY)])
+        stamp = dt.datetime(2026, 11, 28, 14, 5)
+        other = {"subject": "Confirm E-mail change", "messages": [
+            {"from": "e-prints@arxiv.org", "name": "arXiv", "date": stamp, "text": "Please confirm the change."},
+            {"from": "someone@example.org", "name": "x", "date": stamp, "text": "I endorse nothing."}]}
+        check("mail: a need that is asking wants arXiv's mail", endorsement.wants_mail())
+        lines = endorsement.read_arxiv_mail([other], DAY)
+        saved = sorted(path.name for path in (lab.root / "inbox").glob("*.txt"))
+        check("mail from arXiv about something else is saved and changes nothing",
+              len(saved) == 1 and saved[0].startswith("arXiv_20261128-1405") and len(lines) == 1
+              and "arxiv_mail_unread" not in lab.need() and len(lab.jobs()) == 1, str((saved, lines)))
+        check("mail that is not from arXiv is not saved", "endorse nothing" not in "".join(
+            path.read_text(encoding="utf-8") for path in (lab.root / "inbox").glob("*.txt")))
+        about = {"subject": "arXiv endorsement", "messages": [
+            {"from": "e-prints@arxiv.org", "name": "arXiv", "date": stamp + dt.timedelta(hours=1),
+             "text": "SECRET-WORDS You have been endorsed for math.XX."}]}
+        lines = endorsement.read_arxiv_mail([other, about], DAY)
+        need = lab.need()
+        check("mail about an endorsement pauses the need and queues one AI job",
+              len(need.get("arxiv_mail_unread", [])) == 1 and need.get("answer_job", "").startswith("endorsement_arxiv_mail_")
+              and len(lab.jobs()) == 2 and len(lab.notices) == 1, str(need.get("arxiv_mail_unread")))
+        check("the mail's words are in inbox/ only: not in the log line, the notice or the board",
+              "SECRET-WORDS" not in json.dumps(lines) + json.dumps(lab.notices)
+              + (lab.needs / "board.json").read_text(encoding="utf-8")
+              and any("SECRET-WORDS" in path.read_text(encoding="utf-8") for path in (lab.root / "inbox").glob("*.txt")))
+        check("the wording of a mail never marks a need endorsed", lab.need().get("status") != "endorsed")
+        endorsement.tick(today=DAY + dt.timedelta(days=30))
+        item = json.loads((lab.needs / "board.json").read_text(encoding="utf-8"))["items"][0]
+        check("with arXiv's mail unread nobody else is asked and the board says so",
+              not lab.specs() and item["state"] == "changed" and item["status"] == "arXiv wrote", str(item))
+        check("the same mail on the next check does nothing",
+              endorsement.read_arxiv_mail([other, about], DAY) == [] and len(lab.jobs()) == 2 and len(lab.notices) == 1)
+        check("read: the mail is marked", endorsement.mark_answers_read("arxiv-math.XX", DAY) == 1)
+        endorsement.tick(today=DAY + dt.timedelta(days=30))
+        check("after the mail was read the step goes on", len(lab.specs()) == 1)
+        endorsement.mark("arxiv-math.XX", "endorsed", DAY + dt.timedelta(days=31))
+        check("mail: an endorsed need no longer wants arXiv's mail", not endorsement.wants_mail())
 
     with tempfile.TemporaryDirectory() as folder:
         import followup_drafter

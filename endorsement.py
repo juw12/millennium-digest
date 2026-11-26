@@ -17,7 +17,10 @@ Rules (numbers in outreach_policy.json under endorsement_requests):
   * the moment anybody answers (on this topic or on one the need names), nothing more is written: an AI
     session reads the answer first (a needs_ai job is queued once);
   * a later request says how many people were asked before it;
-  * nobody gets a follow-up on an endorsement request: silence means the next person is asked.
+  * nobody gets a follow-up on an endorsement request: silence means the next person is asked;
+  * mail from arXiv to the lab's own Gmail is read by the Gmail check (gmail_inbox.py, every two hours) and
+    saved to inbox/. When it speaks of an endorsement, nothing more goes out and an AI session reads it:
+    this module does not decide from the wording of a mail that an endorsement was given.
 
 Commands
   python endorsement.py status           what was asked, what happens next; changes nothing
@@ -43,6 +46,9 @@ QUEUE_DIR = HERE.parent / "outbox" / "outreach"
 LEDGER_FILE = HERE / "contacts_log.json"
 POLICY_FILE = HERE / "outreach_policy.json"
 RESEARCH_QUEUE = HERE.parent / "research_queue.json"
+INBOX_DIR = HERE.parent / "inbox"
+ARXIV_SENDER = "arxiv.org"  # what the Gmail check searches for
+MAIL_SEEN_NAME = "arxiv_mail_seen.json"
 STATUS_FILE_NAME = "status.json"
 BOARD_FILE_NAME = "board.json"
 BOARD_REPORT_NAME = "board.md"
@@ -76,7 +82,7 @@ def load_needs():
     """Every readable need file, oldest name first. A file without the required keys is skipped."""
     needs = []
     for path in sorted(NEEDS_DIR.glob("*.json")):
-        if path.name in (STATUS_FILE_NAME, BOARD_FILE_NAME):
+        if path.name in (STATUS_FILE_NAME, BOARD_FILE_NAME, MAIL_SEEN_NAME):
             continue
         need = _read(path, None)
         if isinstance(need, dict) and all(key in need for key in REQUIRED_KEYS):
@@ -189,6 +195,9 @@ def decide(need, ledger, today, limits):
     if need.get("status") in ("endorsed", "stopped"):
         return "done", f"{need['id']}: {need['status']}, nothing to do", None
     earlier = requests_so_far(need, ledger)
+    if need.get("arxiv_mail_unread"):
+        return "paused", (f"{need['id']}: arXiv wrote about the endorsement; no new request until an AI session "
+                          "has read the mail"), need["arxiv_mail_unread"]
     if limits.get("pause_when_anyone_replies", True):
         answered = answers(need, ledger)
         if answered:
@@ -304,10 +313,79 @@ def mark_answers_read(need_id, today=None):
         unread = answers(need, ledger)
         need["answers_read"] = sorted(set(need.get("answers_read", [])) | {answer_key(entry) for entry in unread})
         need.pop("answer_job", None)
+        from_arxiv = len(need.pop("arxiv_mail_unread", []))
         _write(path, need)
         write_status(today)
-        return len(unread)
+        return len(unread) + from_arxiv
     return None
+
+
+def wants_mail():
+    """True while a need is still asking: only then is arXiv's mail worth a search."""
+    return any(need.get("status") not in ("endorsed", "stopped") for _, need in load_needs())
+
+
+def read_arxiv_mail(threads, today=None):
+    """threads: Gmail threads with arXiv, as gmail_inbox.read_threads returns them. Every message from arXiv
+    not seen before is saved to inbox/. One that speaks of an endorsement pauses the needs it can belong to
+    and queues one AI job. Returns the lines for the Gmail check's log; they carry no text of the mail."""
+    today = today or dt.date.today()
+    seen_file = NEEDS_DIR / MAIL_SEEN_NAME
+    seen = set(_read(seen_file, []))
+    lines, new_keys = [], []
+    for thread in threads:
+        for message in thread.get("messages", []):
+            if ARXIV_SENDER not in message.get("from", ""):
+                continue
+            key = f"{message['date']:%Y%m%d-%H%M}-{abs(hash_text(message['text'])) % 10**8:08d}"
+            if key in seen or key in new_keys:
+                continue
+            new_keys.append(key)
+            INBOX_DIR.mkdir(exist_ok=True)
+            saved = INBOX_DIR / f"arXiv_{key}.txt"
+            saved.write_text(f"From: {message['from']}\nDate: {message['date']:%Y-%m-%d %H:%M}\n"
+                             f"Subject: {thread.get('subject', '')}\n\n{message['text']}\n", encoding="utf-8")
+            words = f"{thread.get('subject', '')} {message['text']}".lower()
+            if "endors" not in words:
+                lines.append(f"arXiv mail saved: inbox/{saved.name}")
+                continue
+            asking = [(path, need) for path, need in load_needs() if need.get("status") not in ("endorsed", "stopped")]
+            named = [(path, need) for path, need in asking if need["category"].lower() in words]
+            for path, need in named or asking:
+                need["arxiv_mail_unread"] = [*need.get("arxiv_mail_unread", []), saved.name]
+                if not need.get("answer_job"):
+                    job_id = f"endorsement_arxiv_mail_{re.sub(r'[^a-z0-9]+', '_', need['id'].lower())}_{today:%Y%m%d}"
+                    _queue_job({
+                        "id": job_id,
+                        "title": f"arXiv wrote about the endorsement for {need['category']}: read it, nothing goes out before",
+                        "project": "outreach",
+                        "status": "needs_ai",
+                        "why": (
+                            f"A mail from arXiv that speaks of an endorsement is in inbox/{saved.name}; endorsement.py "
+                            f"paused the need {need['id']}. Read it. If it says the endorsement was GIVEN: `python "
+                            f"endorsement.py endorsed {need['id']}` (the upload job becomes due; it needs Juwen logged in "
+                            "to arXiv in Edge). If it says something else (a receipt, a reminder, a refusal by arXiv): act "
+                            f"on what it says, then `python endorsement.py read {need['id']}` so the daily step goes on. "
+                            "Do not decide from the subject line alone."
+                        ),
+                    })
+                    need["answer_job"] = job_id
+                _write(path, need)
+            lines.append(f"arXiv wrote about an endorsement: inbox/{saved.name}; requests are on hold until it is read")
+            _tell_juwen(f"endorsement_arxiv_mail_{key}", "arXiv wrote about your endorsement",
+                        f"A mail from arXiv about an endorsement arrived ({message['date']:%Y-%m-%d %H:%M}). It is saved "
+                        f"as inbox/{saved.name}. No more requests go out until an AI session has read it.")
+    if new_keys:
+        _write(seen_file, sorted(seen | set(new_keys)))
+        write_status(today)
+    return lines
+
+
+def hash_text(value):
+    """A number that is the same on every run for the same text (Python's own hash is not)."""
+    import hashlib
+
+    return int(hashlib.sha1(value.encode("utf-8")).hexdigest()[:12], 16)
 
 
 def reopen_upload_job(need, today):
@@ -380,6 +458,8 @@ def plain_line(need, action, earlier, detail):
         return "arXiv has the endorsement. The upload is the next step."
     if need.get("status") == "stopped" or action == "stop":
         return f"Stopped after {len(earlier)} request(s) without an endorsement. Somebody you know is the next best way."
+    if action == "paused" and need.get("arxiv_mail_unread"):
+        return "arXiv wrote about the endorsement. Nothing more goes out until an AI session has read the mail."
     if action == "paused":
         return "Somebody answered. Nothing more goes out until the answer has been read."
     if action == "waiting_in_queue":
@@ -406,7 +486,8 @@ def board(data):
             state, status, needs_you, following = "rejected", "Nobody endorsed", True, row["line"]
             dates.append((need.get("stopped") or {}).get("date", ""))
         elif row["action"] == "paused":
-            state, status, needs_you, following = "changed", "Somebody answered", False, row["line"]
+            status = "arXiv wrote" if need.get("arxiv_mail_unread") else "Somebody answered"
+            state, needs_you, following = "changed", False, row["line"]
         else:
             state, status, needs_you, following = "waiting", f"{row['asked']} of {row['max_people']} asked", False, row["line"]
         expires = f" The arXiv draft expires {row['draft_expires']}; a new one can be started after that." if row["draft_expires"] else ""
@@ -418,8 +499,9 @@ def board(data):
             "changed": max([day for day in dates if day], default=""),
             "next": following,
             "needs_you": needs_you,
-            "detail": (f"{row['paper']}.{expires} arXiv writes 'endorsed' to the arXiv account's own address, which the "
-                       f"lab cannot read: when it comes, tell a chat or run: python endorsement.py endorsed {row['id']}"),
+            "detail": (f"{row['paper']}.{expires} The Gmail check reads mail from arXiv every two hours and an AI "
+                       "session reads what it finds. If you see 'endorsed' somewhere else first, tell a chat or run: "
+                       f"python endorsement.py endorsed {row['id']}"),
         })
     outreach = data["outreach"]
     words = {"waiting": "waiting", "accepted": "endorsed", "rejected": "stopped", "changed": "with an answer to read"}

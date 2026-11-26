@@ -16,6 +16,8 @@ What one check does, per contact in contacts_log.json that is drafted, sent or r
       - the answer is saved as a reply draft inside that Gmail thread, so it threads correctly;
   * your message after their last reply -> marked answered;
   * a follow-up due under the 21-day rule (outreach.followups) is saved as a draft in the thread too.
+While an arXiv endorsement is being asked for (endorsement.py), mail from arXiv to this account is read as well
+and saved to ../inbox/; it is never answered.
 You read the draft in Gmail and press Send; the next check sees it was sent.
 """
 import ctypes
@@ -417,6 +419,22 @@ def _queue_ai_answer(name, entry, draft_path):
         pass
 
 
+def arxiv_mail(context):
+    """While an arXiv endorsement is being asked for, arXiv's own mail to this account is read too
+    (endorsement.py saves it and decides what it means for the requests). No need on file: no search."""
+    try:
+        import endorsement
+
+        if not endorsement.wants_mail():
+            return []
+        return endorsement.read_arxiv_mail(read_threads(context, endorsement.ARXIV_SENDER))
+    except Exception as error:
+        if "signed out" in str(error):
+            raise
+        log(traceback.format_exc().strip().replace("\n", " / "))
+        return [f"arXiv mail: could not read ({error})"]
+
+
 def check(dry_run=False):
     ledger = outreach.load_ledger()
     if not dry_run:
@@ -432,6 +450,8 @@ def check(dry_run=False):
                     raise
                 events.append(f"{entry['to']}: could not read ({error})")
                 log(traceback.format_exc().strip().replace("\n", " / "))
+        if not dry_run:
+            events += arxiv_mail(context)
     if not dry_run:
         outreach.save_ledger(ledger)
     return events
