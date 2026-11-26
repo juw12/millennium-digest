@@ -360,6 +360,14 @@ def sync_contact(context, ledger, entry, dry_run=False):
         entry.pop("answer_sent_date", None)
         entry["gmail_thread"] = thread["id"]
         _release_holds(ledger, entry.get("topic"))
+        if any(sent_at > when for sent_at, _ in mine):
+            # Answered from this account before the check ran (Juwen, by hand): a second, generated
+            # thank-you would be noise. Nothing is drafted; an AI session still reads what they wrote.
+            entry.pop("reply_draft", None)
+            _queue_ai_answer(name, entry, incoming, answered=True)
+            history.record("watch", f"{name} replied; it was already answered from this account")
+            events.append("  already answered from this account: no draft; an AI session reads the reply")
+            continue
         path, body, generated = write_answer(entry, message, thread["subject"])
         saved = save_thread_draft(context, thread["id"], body)
         entry["reply_draft"] = {
@@ -393,9 +401,11 @@ def sync_contact(context, ledger, entry, dry_run=False):
     return events
 
 
-def _queue_ai_answer(name, entry, draft_path):
+def _queue_ai_answer(name, entry, draft_path, answered=False):
     """An expert replied: queue a needs_ai job so the next AI session writes and sends the answer
-    (user's standing approval 2026-11-07). Unattended code never sends generated text itself."""
+    (user's standing approval 2026-11-07). Unattended code never sends generated text itself.
+    answered=True: the reply was already answered from the account; `draft_path` is then the saved
+    reply, and the job is to read it and record what it means, not to write to the person again."""
     queue_path = HERE.parent / "research_queue.json"
     try:
         queue = json.loads(queue_path.read_text(encoding="utf-8"))
@@ -404,12 +414,16 @@ def _queue_ai_answer(name, entry, draft_path):
     job_id = f"answer_{entry['to'].split('@')[0]}_{dt.date.today():%Y%m%d}"
     if any(job.get("id") == job_id for job in queue.get("jobs", [])):
         return
+    title = f"Answer {name} (they replied) - AI session writes AND sends it"
+    why = f"Reply saved; starting draft at {draft_path}. Send from the Gmail thread after the policy checks."
+    if answered:
+        title = f"Read the reply of {name} (already answered from the Gmail account) - send nothing more"
+        why = (f"Reply saved at {draft_path}. It was answered from the Gmail account before this check ran, so "
+               "do NOT write to this person again. Read the reply, check what it says against public sources, "
+               "and record what it changes: prior art, public notes and papers that are now out of date, "
+               "queue jobs that rest on the old state, and any endorsement request that names this topic.")
     queue.setdefault("jobs", []).append({
-        "id": job_id,
-        "title": f"Answer {name} (they replied) - AI session writes AND sends it",
-        "project": "outreach",
-        "status": "needs_ai",
-        "why": f"Reply saved; starting draft at {draft_path}. Send from the Gmail thread after the policy checks.",
+        "id": job_id, "title": title, "project": "outreach", "status": "needs_ai", "why": why,
     })
     queue_path.write_text(json.dumps(queue, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     try:

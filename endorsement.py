@@ -26,7 +26,9 @@ Commands
   python endorsement.py status           what was asked, what happens next; changes nothing
   python endorsement.py tick             the daily step (also run by followup_drafter.py before the queue)
   python endorsement.py endorsed <id>    arXiv has the endorsement: stop asking, reopen the upload job
-  python endorsement.py stop <id>        stop asking for this need (for example the paper was withdrawn)
+  python endorsement.py stop <id> [why]  stop asking for this need. With a reason it is a withdrawal (for
+                                         example a better result turned up) and the board says so; the
+                                         reason is shown on dashboards: no name, no address in it
   python endorsement.py read <id>        an AI session has read the answers that paused the need: go on
 
 status.json next to the needs is a summary without names or addresses, for dashboards. board.json is the
@@ -274,14 +276,18 @@ def tick(today=None, status_only=False):
     return lines
 
 
-def mark(need_id, status, today=None):
-    """endorsed or stopped by hand. Waiting specs of the need are withdrawn so nothing more goes out."""
+def mark(need_id, status, today=None, reason=""):
+    """endorsed or stopped by hand. Waiting specs of the need are withdrawn so nothing more goes out.
+    A stop with a reason is a withdrawal by the lab, not a request nobody answered: the board shows the
+    reason, so it must not name a person or an address."""
     today = today or dt.date.today()
     for path, need in load_needs():
         if need["id"] != need_id:
             continue
         need["status"] = status
         need[status] = {"date": today.isoformat()}
+        if status == "stopped" and reason.strip():
+            need[status].update({"reason": reason.strip(), "withdrawn": True})
         _write(path, need)
         while True:
             queued = waiting_spec(need)
@@ -452,10 +458,17 @@ def summary(today=None):
     }
 
 
+def withdrawn(need):
+    """True when the lab itself took the request back (stop with a reason), not when nobody endorsed."""
+    return need.get("status") == "stopped" and bool((need.get("stopped") or {}).get("withdrawn"))
+
+
 def plain_line(need, action, earlier, detail):
     """One sentence for a dashboard. It never carries a name, an address, a file name or the code."""
     if need.get("status") == "endorsed":
         return "arXiv has the endorsement. The upload is the next step."
+    if withdrawn(need):
+        return f"Withdrawn by the lab after {len(earlier)} request(s): {need['stopped']['reason']}"
     if need.get("status") == "stopped" or action == "stop":
         return f"Stopped after {len(earlier)} request(s) without an endorsement. Somebody you know is the next best way."
     if action == "paused" and need.get("arxiv_mail_unread"):
@@ -484,6 +497,8 @@ def board(data):
             dates.append((need.get("endorsed") or {}).get("date", ""))
         elif row["status"] == "stopped":
             state, status, needs_you, following = "rejected", "Nobody endorsed", True, row["line"]
+            if withdrawn(need):  # the lab's own decision: nothing is waiting for Juwen
+                status, needs_you = "Withdrawn", False
             dates.append((need.get("stopped") or {}).get("date", ""))
         elif row["action"] == "paused":
             status = "arXiv wrote" if need.get("arxiv_mail_unread") else "Somebody answered"
@@ -491,6 +506,10 @@ def board(data):
         else:
             state, status, needs_you, following = "waiting", f"{row['asked']} of {row['max_people']} asked", False, row["line"]
         expires = f" The arXiv draft expires {row['draft_expires']}; a new one can be started after that." if row["draft_expires"] else ""
+        watching = ("Nothing is being asked for this paper any more." if withdrawn(need) else
+                    "The Gmail check reads mail from arXiv every two hours and an AI "
+                    "session reads what it finds. If you see 'endorsed' somewhere else first, tell a chat or run: "
+                    f"python endorsement.py endorsed {row['id']}")
         items.append({
             "name": f"arXiv endorsement {row['category']}",
             "state": state,
@@ -499,9 +518,7 @@ def board(data):
             "changed": max([day for day in dates if day], default=""),
             "next": following,
             "needs_you": needs_you,
-            "detail": (f"{row['paper']}.{expires} The Gmail check reads mail from arXiv every two hours and an AI "
-                       "session reads what it finds. If you see 'endorsed' somewhere else first, tell a chat or run: "
-                       f"python endorsement.py endorsed {row['id']}"),
+            "detail": f"{row['paper']}.{expires} {watching}",
         })
     outreach = data["outreach"]
     words = {"waiting": "waiting", "accepted": "endorsed", "rejected": "stopped", "changed": "with an answer to read"}
@@ -562,9 +579,12 @@ def main(arguments):
         lines = tick(status_only=True)
     elif command == "tick":
         lines = tick()
-    elif command in ("endorsed", "stop") and len(arguments) == 2:
+    elif (command == "endorsed" and len(arguments) == 2) or (command == "stop" and len(arguments) >= 2):
         status = "endorsed" if command == "endorsed" else "stopped"
-        lines = [f"{arguments[1]}: {status}" if mark(arguments[1], status) else f"no need with id {arguments[1]}"]
+        reason = " ".join(arguments[2:])
+        done = mark(arguments[1], status, reason=reason)
+        lines = [f"{arguments[1]}: {'withdrawn' if reason and done else status}" if done
+                 else f"no need with id {arguments[1]}"]
     elif command == "read" and len(arguments) == 2:
         marked = mark_answers_read(arguments[1])
         lines = [f"no need with id {arguments[1]}" if marked is None else f"{arguments[1]}: {marked} answer(s) marked as read"]

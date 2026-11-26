@@ -245,6 +245,24 @@ def main():
         check("mail: an endorsed need no longer wants arXiv's mail", not endorsement.wants_mail())
 
     with tempfile.TemporaryDirectory() as folder:
+        lab = Lab(folder, contacts=[sent("person1@example.org", DAY)])
+        endorsement.mark("arxiv-math.XX", "stopped", DAY, reason="a better result was already public")
+        item = json.loads((lab.needs / "board.json").read_text(encoding="utf-8"))["items"][0]
+        check("a stop with a reason is a withdrawal: the board says why and nothing waits for Juwen",
+              item["status"] == "Withdrawn" and not item["needs_you"]
+              and "a better result was already public" in item["next"] and "endorsed" not in item["detail"], str(item))
+        endorsement.tick(today=DAY + dt.timedelta(days=30))
+        check("a withdrawn need asks nobody and tells nobody", not lab.specs() and not lab.notices)
+        check("a withdrawn need no longer wants arXiv's mail", not endorsement.wants_mail())
+
+    with tempfile.TemporaryDirectory() as folder:
+        lab = Lab(folder, contacts=[sent("person1@example.org", DAY)])
+        endorsement.mark("arxiv-math.XX", "stopped", DAY)
+        item = json.loads((lab.needs / "board.json").read_text(encoding="utf-8"))["items"][0]
+        check("a stop without a reason still reads 'Nobody endorsed'",
+              item["status"] == "Nobody endorsed" and item["needs_you"], str(item))
+
+    with tempfile.TemporaryDirectory() as folder:
         import followup_drafter
 
         lab = Lab(folder, contacts=[{**sent("person1@example.org", DAY), "no_follow_up": True},
