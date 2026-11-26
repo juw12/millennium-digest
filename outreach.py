@@ -188,6 +188,8 @@ def propose(spec_path):
         "state": "drafted",
         "report_hash": file_hash(spec["attachment"]) if spec.get("attachment") else None,
     }
+    if spec.get("_no_follow_up"):  # for example an arXiv endorsement request: the next person is asked instead
+        entry["no_follow_up"] = True
     if auto_send:
         import gmail_compose  # user approval 2026-11-07: first contacts are sent automatically (all rules above still apply)
         if gmail_compose.send_now(spec["to"], spec["subject"], spec["body"]):
@@ -359,7 +361,7 @@ def followups(open_windows=True):
     ledger = load_ledger()
     drafted = []
     for entry in ledger["contacts"]:
-        if entry["state"] != "sent" or entry.get("follow_up") or entry.get("followed_up"):
+        if entry["state"] != "sent" or entry.get("follow_up") or entry.get("followed_up") or entry.get("no_follow_up"):
             continue
         sent_date = entry.get("sent_date", entry["date"])
         if days_since(sent_date) < POLICY["follow_up_after_days_without_reply"]:

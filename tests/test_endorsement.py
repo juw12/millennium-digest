@@ -107,6 +107,7 @@ def main():
               "ABC123" in spec["subject"] and "https://arxiv.org/auth/endorse?x=ABC123" in spec["body"]
               and "Dear Dr Person 1," in spec["body"] and "arXiv:0000.00001" in spec["body"] and "{" not in spec["body"])
         check("the first request does not speak of earlier ones", "before you" not in spec["body"])
+        check("the spec asks for no follow-up", spec.get("_no_follow_up") is True)
         outreach.EXPERTS = dict(spec["_expert_entry"])
         outreach.TODAY = DAY
         problems = outreach.check_rules(outreach.prepared(spec), {"contacts": []})
@@ -183,6 +184,26 @@ def main():
         (lab.needs / "half.json").write_text(json.dumps({"id": "x"}), encoding="utf-8")
         lines = endorsement.tick(today=DAY)
         check("a broken or half-written need file is skipped", len(lines) == 1 and len(lab.specs()) == 1)
+
+    with tempfile.TemporaryDirectory() as folder:
+        import followup_drafter
+
+        lab = Lab(folder, contacts=[{**sent("person1@example.org", DAY), "no_follow_up": True},
+                                    sent("other@example.org", DAY, topic="SomethingElse")])
+        followup_drafter.LEDGER_FILE = lab.ledger
+        rows = followup_drafter.auto_followups(DAY + dt.timedelta(days=30), {}, set())
+        check("no follow-up is drafted for an endorsement request, others keep theirs",
+              [row[1] for row in rows] == ["other@example.org"], str([row[1] for row in rows]))
+        saved_ledger, saved_draft, saved_rules = outreach.load_ledger, outreach.save_draft, outreach.check_rules
+        drafts = []
+        outreach.load_ledger = lambda: json.loads(lab.ledger.read_text(encoding="utf-8"))
+        outreach.save_ledger = lambda ledger: None
+        outreach.save_draft = lambda to, *rest, **more: drafts.append(to) or "url"
+        outreach.check_rules = lambda *arguments, **more: []
+        outreach.TODAY = DAY + dt.timedelta(days=30)
+        outreach.followups(open_windows=False)
+        outreach.load_ledger, outreach.save_draft, outreach.check_rules = saved_ledger, saved_draft, saved_rules
+        check("outreach.followups skips it as well", drafts == ["other@example.org"], str(drafts))
 
     print()
     print("FAILED: " + ", ".join(FAILURES) if FAILURES else "all checks passed")

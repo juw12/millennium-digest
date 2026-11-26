@@ -78,6 +78,8 @@ def auto_followups(today, state, handwritten_addresses):
     for address, entry in sorted(latest.items()):
         if entry.get("state") != "sent" or not entry.get("sent_date") or address in handwritten_addresses:
             continue
+        if entry.get("no_follow_up"):  # an arXiv endorsement request: endorsement.py asks the next person instead
+            continue
         key = f"auto:{address}"
         due = dt.date.fromisoformat(entry["sent_date"]) + dt.timedelta(days=WAIT_DAYS)
         subject = entry.get("subject", "")

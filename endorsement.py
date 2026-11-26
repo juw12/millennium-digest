@@ -16,7 +16,8 @@ Rules (numbers in outreach_policy.json under endorsement_requests):
   * at most `max_people_per_need` people for one need; then it stops and tells Juwen;
   * the moment anybody answers (on this topic or on one the need names), nothing more is written: an AI
     session reads the answer first (a needs_ai job is queued once);
-  * a later request says how many people were asked before it.
+  * a later request says how many people were asked before it;
+  * nobody gets a follow-up on an endorsement request: silence means the next person is asked.
 
 Commands
   python endorsement.py status           what was asked, what happens next; changes nothing
@@ -141,6 +142,7 @@ def spec_for(need, candidate, earlier, today):
     spec = {
         "_status": f"waiting: written {today.isoformat()} by endorsement.py (request {number} of this need)",
         "_endorsement_need": need["id"],
+        "_no_follow_up": True,
         "_expert_entry": {candidate["to"].strip().lower(): {
             "name": candidate["name"],
             "topics": [f"arXiv endorsement {need['category']}"],
