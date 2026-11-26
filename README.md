@@ -23,7 +23,8 @@ A small personal research tool around the Clay Millennium Prize problems. It has
    arXiv endorsement requests are a standing step too (`endorsement.py`): arXiv asks a first-time
    submitter to a category to forward a code to somebody who may endorse. The daily task asks one person
    at a time, the next one only after 7 days of silence, three people at most, nobody once anybody
-   has answered, and no follow-up to the same person. Only people arXiv itself lists as endorsers for the category, whose work the paper
+   has answered, and no follow-up to the same person. It also writes `board.json`, a summary without names in
+   the shape [ReachPilot](https://github.com/juw12/reachpilot)'s Submissions card reads. Only people arXiv itself lists as endorsers for the category, whose work the paper
    cites and whose address is printed in public, are asked.
 
 This is a hobby tool by an engineer, not a mathematician. It does not solve or claim progress on any

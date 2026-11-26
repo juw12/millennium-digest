@@ -26,7 +26,9 @@ Commands
   python endorsement.py stop <id>        stop asking for this need (for example the paper was withdrawn)
   python endorsement.py read <id>        an AI session has read the answers that paused the need: go on
 
-status.json next to the needs is a summary without names or addresses, for dashboards.
+status.json next to the needs is a summary without names or addresses, for dashboards. board.json is the
+same thing in the shape ReachPilot's Submissions card reads (a board in its submissions_private.json:
+"status" = board.json, "report" = board.md). board.md is for this PC only: it names who was asked.
 """
 import datetime as dt
 import json
@@ -42,6 +44,8 @@ LEDGER_FILE = HERE / "contacts_log.json"
 POLICY_FILE = HERE / "outreach_policy.json"
 RESEARCH_QUEUE = HERE.parent / "research_queue.json"
 STATUS_FILE_NAME = "status.json"
+BOARD_FILE_NAME = "board.json"
+BOARD_REPORT_NAME = "board.md"
 DEFAULT_RULES = {"days_between_requests": 7, "max_people_per_need": 3, "pause_when_anyone_replies": True}
 ANSWERED = ("replied", "answered")
 REFUSED = ("declined", "do-not-contact")
@@ -72,7 +76,7 @@ def load_needs():
     """Every readable need file, oldest name first. A file without the required keys is skipped."""
     needs = []
     for path in sorted(NEEDS_DIR.glob("*.json")):
-        if path.name == STATUS_FILE_NAME:
+        if path.name in (STATUS_FILE_NAME, BOARD_FILE_NAME):
             continue
         need = _read(path, None)
         if isinstance(need, dict) and all(key in need for key in REQUIRED_KEYS):
@@ -386,11 +390,87 @@ def plain_line(need, action, earlier, detail):
     return f"Request {len(earlier) + 1} is due at the next daily run."
 
 
+def board(data):
+    """The summary as a Submissions board: one line per need, no name, no address, no code.
+    state is one of waiting, accepted, rejected, changed; needs_you is true when only Juwen can go on."""
+    items = []
+    for need, row in zip([need for _, need in load_needs()], data["needs"]):
+        dates = [request["date"] for request in row["requests"]]
+        if row["status"] == "endorsed":
+            uploaded = bool(need.get("uploaded"))
+            state, status, needs_you = "accepted", "Uploaded" if uploaded else "Endorsed", not uploaded
+            following = ("The paper is on arXiv." if uploaded
+                         else "arXiv has the endorsement. Log in to arXiv in Edge, open Vector and type: go")
+            dates.append((need.get("endorsed") or {}).get("date", ""))
+        elif row["status"] == "stopped":
+            state, status, needs_you, following = "rejected", "Nobody endorsed", True, row["line"]
+            dates.append((need.get("stopped") or {}).get("date", ""))
+        elif row["action"] == "paused":
+            state, status, needs_you, following = "changed", "Somebody answered", False, row["line"]
+        else:
+            state, status, needs_you, following = "waiting", f"{row['asked']} of {row['max_people']} asked", False, row["line"]
+        expires = f" The arXiv draft expires {row['draft_expires']}; a new one can be started after that." if row["draft_expires"] else ""
+        items.append({
+            "name": f"arXiv endorsement {row['category']}",
+            "state": state,
+            "status": status,
+            "score": "",
+            "changed": max([day for day in dates if day], default=""),
+            "next": following,
+            "needs_you": needs_you,
+            "detail": (f"{row['paper']}.{expires} arXiv writes 'endorsed' to the arXiv account's own address, which the "
+                       f"lab cannot read: when it comes, tell a chat or run: python endorsement.py endorsed {row['id']}"),
+        })
+    outreach = data["outreach"]
+    words = {"waiting": "waiting", "accepted": "endorsed", "rejected": "stopped", "changed": "with an answer to read"}
+    counts = [f"{len([item for item in items if item['state'] == state])} {word}" for state, word in words.items()
+              if any(item["state"] == state for item in items)]
+    return {
+        "ran": data["updated"][:16].replace("T", " "),
+        "ok": True,
+        "summary": (", ".join(counts) or "No endorsement is needed") + ". New researchers written to: "
+                   f"{outreach['new_7_days']} of {outreach['limit_7_days']} in 7 days, "
+                   f"{outreach['new_30_days']} of {outreach['limit_30_days']} in 30 days.",
+        "items": items,
+    }
+
+
+def report(data, today=None):
+    """board.md: the same, with the names. It stays in the private outbox on this PC."""
+    ledger = _read(LEDGER_FILE, {"contacts": []})
+    limits = rules()
+    lines = ["# arXiv endorsement requests", "", f"Written {data['updated'][:16].replace('T', ' ')} by endorsement.py. "
+             "Private: this file names the people who were asked.", ""]
+    for (_, need), row in zip(load_needs(), data["needs"]):
+        asked = {entry["to"]: entry for entry in requests_so_far(need, ledger)}
+        lines += [f"## {row['category']}: {row['paper']}", "", row["line"], "",
+                  f"- Paper: {row['paper_url']}", f"- Endorsement page: {need['endorse_url']} (code {need['code']})",
+                  f"- arXiv draft: {need.get('submission', 'not recorded')}, expires {row['draft_expires'] or 'not recorded'}",
+                  "", "| # | Person | Asked | State |", "|---|---|---|---|"]
+        for number, candidate in enumerate(need["candidates"], start=1):
+            entry = asked.get(candidate["to"].strip().lower())
+            lines.append(f"| {number} | {candidate['name']} | {(entry.get('sent_date') or entry['date']) if entry else 'not yet'} "
+                         f"| {entry['state'] if entry else 'on the list'} |")
+        lines.append("")
+    lines += ["## Rules", "",
+              f"- One person at a time; the next person after {limits['days_between_requests']} days of silence.",
+              f"- At most {limits['max_people_per_need']} people for one need, then it stops and tells Juwen.",
+              "- Nothing more goes out once anybody has answered, until an AI session has read the answer.",
+              "- No follow-up to the same person.",
+              "- When arXiv says 'endorsed': `python endorsement.py endorsed <id>`.", ""]
+    return "\n".join(lines)
+
+
 def write_status(today=None):
     if not NEEDS_DIR.exists():
         return None
     data = summary(today)
     _write(NEEDS_DIR / STATUS_FILE_NAME, data)
+    try:  # the board is a second view of the same facts; it must never stop the daily step
+        _write(NEEDS_DIR / BOARD_FILE_NAME, board(data))
+        (NEEDS_DIR / BOARD_REPORT_NAME).write_text(report(data, today), encoding="utf-8")
+    except Exception:
+        pass
     return data
 
 

@@ -118,6 +118,16 @@ def main():
         text = json.dumps(status)
         check("status.json has no name and no address", "person1" not in text and "Person 1" not in text and "ABC123" not in text)
         check("status.json says a spec waits in the queue", status["needs"][0]["action"] == "waiting_in_queue")
+        board = json.loads((lab.needs / "board.json").read_text(encoding="utf-8"))
+        text = json.dumps(board)
+        item = board["items"][0]
+        check("board.json has no name, no address and no code",
+              "person1" not in text and "Person 1" not in text and "ABC123" not in text)
+        check("board.json has the shape a Submissions card reads",
+              board["ok"] is True and len(board["ran"]) == 16 and len(board["summary"]) <= 300
+              and item["state"] == "waiting" and item["needs_you"] is False and len(item["name"]) <= 80
+              and len(item["status"]) <= 40 and len(item["next"]) <= 200 and len(item["detail"]) <= 400, text)
+        check("board.md names who is on the list", "Person 1" in (lab.needs / "board.md").read_text(encoding="utf-8"))
 
     with tempfile.TemporaryDirectory() as folder:
         lab = Lab(folder, contacts=[sent("person1@example.org", DAY)])
@@ -141,6 +151,8 @@ def main():
         lab = Lab(folder, contacts=[sent("person1@example.org", DAY, state="replied")])
         endorsement.tick(today=DAY + dt.timedelta(days=30))
         check("an answer pauses the need: no spec", not lab.specs())
+        item = json.loads((lab.needs / "board.json").read_text(encoding="utf-8"))["items"][0]
+        check("an answer: the board says changed", item["state"] == "changed" and item["needs_you"] is False, str(item))
         check("an answer queues one AI job", [job["id"] for job in lab.jobs()] == ["upload_job", "endorsement_answer_arxiv_math_xx"])
         endorsement.tick(today=DAY + dt.timedelta(days=31))
         check("the AI job is queued once", len(lab.jobs()) == 2)
@@ -161,6 +173,10 @@ def main():
         check("three people asked: it stops although a fourth is on the list",
               not lab.specs() and lab.need()["status"] == "stopped")
         check("stopping tells Juwen once", len(lab.notices) == 1 and "ABC123" in lab.notices[0][2])
+        item = json.loads((lab.needs / "board.json").read_text(encoding="utf-8"))["items"][0]
+        check("stopped: the board says rejected and needs Juwen",
+              item["state"] == "rejected" and item["needs_you"] is True and item["changed"] == "2026-12-26"
+              and len(item["next"]) <= 200, str(item))
         endorsement.tick(today=DAY + dt.timedelta(days=60))
         check("a stopped need stays stopped and silent", not lab.specs() and len(lab.notices) == 1)
 
@@ -177,6 +193,9 @@ def main():
               job["not_before"] == "2026-12-04" and "bridged" not in job and job["why"].startswith("ENDORSED on 2026-12-04"))
         endorsement.tick(today=DAY + dt.timedelta(days=40))
         check("endorsed: nobody else is asked", len(lab.specs()) == 1)
+        item = json.loads((lab.needs / "board.json").read_text(encoding="utf-8"))["items"][0]
+        check("endorsed: the board says accepted and needs Juwen for the upload",
+              item["state"] == "accepted" and item["needs_you"] is True and item["changed"] == "2026-12-04", str(item))
 
     with tempfile.TemporaryDirectory() as folder:
         lab = Lab(folder)
