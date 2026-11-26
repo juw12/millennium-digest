@@ -62,7 +62,10 @@ DEFAULT_TALOS_DIR = r"E:\Projects\talos"  # Talos (OpenCode + Hermes agent, gith
 OPEN = ("needs_ai", "running")
 # The Referee comes right after the Director: it holds one slot, and a claim nobody re-ran is what every later
 # idea would be built on (2026-11-10: 83 finished results waited for it, 38 of them claiming progress).
-PRIORITY = ["director", "flagship", "review", "squares", "erdos", "panel", "prize", "collab", "bsd", "writer",
+# Partnerships and the Murmuration Desk (BSD, a Millennium problem) come next (2026-11-26, Juwen: 'find ppl ...
+# cowork ... focus on millenium'): each may queue one job every 8 hours, so they cannot crowd the others out, but
+# behind the four big desks the first Partnerships job waited an hour under the weekday cap of 3 workers.
+PRIORITY = ["director", "flagship", "review", "collab", "bsd", "squares", "erdos", "panel", "prize", "writer",
             "tools", "rh", "scout"]
 INFRASTRUCTURE = ("copilot not logged in", "copilot out of quota", "copilot offline",
                   "no connection")  # not the job's fault
