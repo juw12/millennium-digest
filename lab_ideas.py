@@ -41,8 +41,9 @@ ROOT = HERE.parent
 IDEAS = ROOT / "lab_ideas.json"
 NOTEBOOK = ROOT / "lab_notebook.jsonl"
 SQUARES_SCORE = ROOT / "prize_work" / "squares-in-squares" / "best_score.json"
-CARD_DEPTS = ("squares", "erdos", "prize", "bsd", "rh")  # departments that work from idea cards
-FRONTIER_DEPTS = ("erdos", "prize", "bsd", "rh")  # a card here only works when the result passes the published frontier
+CARD_DEPTS = ("squares", "erdos", "prize", "mech", "bsd", "rh")  # departments that work from idea cards
+# a card of these departments only works when the result passes the published frontier
+FRONTIER_DEPTS = ("erdos", "prize", "mech", "bsd", "rh")
 OPEN_JOB = ("needs_ai", "running")
 PROGRESS = ("extension", "new")
 VERDICTS = ("worked", "partial", "failed", "blocked", "no result")  # how a job can leave its card

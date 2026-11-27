@@ -235,7 +235,7 @@ def internal_cap(config):
     """How many research jobs may hold internal-check work at once: internal_share of all research slots."""
     rules = settings(config)
     research = [dept for dept in config.get("departments", [])
-                if dept.get("id") in ("squares", "erdos", "prize", "bsd", "rh") and not dept.get("paused")]
+                if dept.get("id") in ("squares", "erdos", "prize", "mech", "bsd", "rh") and not dept.get("paused")]
     return math.floor(rules["internal_share"] * sum(int(dept.get("slots", 1)) for dept in research))
 
 

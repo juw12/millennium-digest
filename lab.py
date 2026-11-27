@@ -317,8 +317,8 @@ def plan_job(dept, jobs, today, number, config=None, frontier_only=False):
     elif dept_id == "writer":
         title = f"{dept['name']}: advance the first-month package (BSD note, RH note, prize index)"
         topic = f" Package status: {first_month_status()['text']}.{carry}"
-    else:
-        title = f"{dept['name']}: next step"
+    else:  # a desk with no rule of its own (the Mechanics Bench): its idea card, or its standing brief
+        title = title or f"{dept['name']}: next step"
         topic = carry
     return {
         "id": job_id,

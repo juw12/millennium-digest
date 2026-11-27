@@ -146,6 +146,9 @@ python -m PyInstaller --noconfirm --onedir --windowed --name "Millennium Dashboa
   - *Check Gmail now* runs the Gmail check immediately.
 - **Millennium Lab** (`lab.py`, `lab/index.html`): eight bot researchers in departments (BSD, RH, Erdős bench,
   prize bounties, Kaggle Squares-in-Squares packing, library scout for NS/YM/PvNP/Hodge, referee, press room).
+  Since 2026-11-27 a Mechanics Bench (`mech`) works open mechanics problems with a published computational
+  frontier (monostable polyhedra, block-stacking overhang, assembly modes of rigid frameworks, least-volume
+  trusses), one job at most every 4 hours, from idea cards like the Erdős bench.
   Each department always has one AI job open in `research_queue.json`; `ai_watchdog.py` refills it every 30 min,
   so the lab works continuously (target 8 finished steps a day, `lab_departments.json`). Milestones and dates live
   in `lab_targets.json`. `lab/index.html` is a live three.js scene (Paper style, like Cairn Founder Studio) that

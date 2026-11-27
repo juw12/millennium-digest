@@ -65,8 +65,9 @@ OPEN = ("needs_ai", "running")
 # Partnerships and the Murmuration Desk (BSD, a Millennium problem) come next (2026-11-26, Juwen: 'find ppl ...
 # cowork ... focus on millenium'): each may queue one job every 8 hours, so they cannot crowd the others out, but
 # behind the four big desks the first Partnerships job waited an hour under the weekday cap of 3 workers.
-PRIORITY = ["director", "flagship", "review", "collab", "bsd", "squares", "erdos", "panel", "prize", "writer",
-            "tools", "rh", "scout"]
+# The Mechanics Bench (2026-11-27) queues one job every 4 hours and comes after the Bounty Hunters.
+PRIORITY = ["director", "flagship", "review", "collab", "bsd", "squares", "erdos", "panel", "prize", "mech",
+            "writer", "tools", "rh", "scout"]
 INFRASTRUCTURE = ("copilot not logged in", "copilot out of quota", "copilot offline",
                   "no connection")  # not the job's fault
 DETACHED = 0x00000008 | 0x00000200 | 0x08000000 | 0x00000020  # DETACHED | NEW_GROUP | NO_WINDOW | NORMAL priority

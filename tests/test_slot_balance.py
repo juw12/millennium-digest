@@ -129,6 +129,9 @@ def test_ensure_today_works_the_plan_out_once_a_day(tmp_path, monkeypatch):
 
 def test_internal_cap_is_half_of_research_slots():
     assert slot_balance.internal_cap(config()) == 5  # 3 + 3 + 2 + bsd 1 + rh 1 = 10
+    with_mech = config()
+    with_mech["departments"].append({"id": "mech", "name": "Mechanics Bench", "slots": 2, "brief": "b"})
+    assert slot_balance.internal_cap(with_mech) == 6  # the Mechanics Bench is a research desk: 12 slots
 
 
 # ---------------------------------------------------------------- lab.py hooks
@@ -201,3 +204,47 @@ def test_strong_without_a_lean_check_does_not_count(monkeypatch):
     monkeypatch.setattr(lab_useful, "lean_verdicts", lambda path=None: {"e1": "sorry"})
     jobs = [finished_job("e1", "erdos", "2026-11-24", strong=True), panel(["e1"], "2026-11-24")]
     assert slot_balance.desk_record(jobs, ["erdos"], "2026-11-18")["erdos"]["strong"] == 0
+
+
+# ---------------------------------------------------------------- Mechanics Bench (2026-11-27)
+MECH = {"id": "mech", "name": "Mechanics Bench", "slots": 1, "every_hours": 4, "brief": "Mechanics brief."}
+
+
+def test_mechanics_bench_is_in_the_lab_settings():
+    import lab_pool
+    settings = json.loads((Path(lab.__file__).parent / "lab_departments.json").read_text(encoding="utf-8"))
+    desk = next(dept for dept in settings["departments"] if dept["id"] == "mech")
+    assert desk["slots"] == 1 and desk["every_hours"] == 4 and not desk.get("paused")
+    assert "prize_work/mech-<slug>.md" in desk["brief"]
+    assert "$" not in desk["brief"]  # lab_facts.py asks for every named sum in prizes.json; this desk has no prize
+    assert "mech" in lab_ideas.CARD_DEPTS and "mech" in lab_ideas.FRONTIER_DEPTS and "mech" in lab_pool.PRIORITY
+    for desk_id in lab_ideas.FRONTIER_DEPTS:
+        assert desk_id in lab_ideas.CARD_DEPTS
+
+
+def test_mechanics_bench_without_a_card_works_its_standing_brief(monkeypatch):
+    monkeypatch.setattr(lab_ideas, "_load_quiet", lambda: {"cards": []})
+    job = lab.plan_job(MECH, [], TODAY, 1, {})
+    assert job["id"] == "lab_mech_261125_1" and job["dept"] == "mech" and "idea_id" not in job
+    assert job["why"].startswith("Mechanics brief.") and job["why"].endswith(lab.RESEARCH_RULES)
+    assert not lab.is_internal(job, {})  # a frontier desk: its standing brief is not an internal check
+    assert lab.plan_job(MECH, [], TODAY, 1, {}, frontier_only=True)  # so the internal-check cap does not stop it
+
+
+def test_mechanics_bench_works_its_idea_card_and_the_director_refills_it(monkeypatch):
+    card = {"id": "mech-monostable", "dept": "mech", "status": "open", "frontier": True, "value": 8, "odds": 0.2,
+            "cost": 1, "title": "monostable polyhedron with 13 faces", "verifier": "v", "kill": "k",
+            "source": "director:x"}
+    bank = {"cards": [card]}
+    monkeypatch.setattr(lab_ideas, "_load_quiet", lambda: bank)
+    monkeypatch.setattr(lab, "_taken_topics", lambda jobs: set())
+    job = lab.plan_job(MECH, [], TODAY, 1, {})
+    assert job["idea_id"] == "mech-monostable" and job["title"] == "Mechanics Bench: monostable polyhedron with 13 faces"
+    bank["cards"] = []  # an empty bank: the Director's next job is for this desk
+    assert lab_ideas.director_target({"departments": [MECH]}) == ("mech", 0)
+
+
+def test_mechanics_bench_result_file_asks_for_novelty_and_a_checked_claim():
+    import lab_pool
+    schema = lab_pool.result_schema({"id": "lab_mech_261127_1", "dept": "mech"})
+    assert '"novelty"' in schema and '"baseline"' in schema and '"lean_claims"' in schema
